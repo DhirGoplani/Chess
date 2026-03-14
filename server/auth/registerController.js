@@ -1,0 +1,33 @@
+import bcrypt from "bcrypt";
+import { sql } from "../utils/connectDB.js";
+
+export const register = async (req, res) => {
+    try{
+        const {name, username, email, password} = req.body;
+        if(!name || !username || !email || !password){
+            return res.status(400).json({ message: "All fields are required" });
+        }
+        const existingUser = await sql`
+        SELECT id FROM users
+        WHERE email = ${email} OR username = ${username}
+        `;
+        if(existingUser.length > 0){
+            return res.status(409).json({ message: "Email or username already exists" });
+        }
+        const hashedPassword = await bcrypt.hash(password, 9);
+        const newUser = await sql`
+        INSERT INTO users (name, username, email, password)
+        VALUES (${name}, ${username}, ${email}, ${hashedPassword})
+        RETURNING id, name, username, email, bullet_rating, blitz_rating, rapid_rating, created_at
+        `;
+        res.status(201).json({
+            message: "User registered successfully",
+            user: newUser[0]
+        });
+    }
+    catch(error){
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
