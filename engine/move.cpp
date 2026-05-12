@@ -134,3 +134,45 @@ void Board::unmakeMove(Move& move){
     enPassantSquare = move.prevEnPassant;
     castlingRights  = move.prevCastling;  
 }
+
+bool Board::isInCheck(int colour) {
+    int enemy = 1 - colour;
+
+    // Find king's square
+    BB kingBB = pieces[colour][KING];
+    int kingIdx = 0;
+    while (!((kingBB >> kingIdx) & 1)) kingIdx++;
+    string kingSq = indexToSquare(kingIdx);
+
+    // Attacked by enemy pawns?
+    if(colour == 0) {
+        // White king — black pawns attack downward
+        BB kingBit = 1ULL << kingIdx;
+        BB pawnAttacks = ((kingBit << 9) & ~afile) | ((kingBit << 7) & ~hfile);
+        if (pawnAttacks & pieces[enemy][PAWN]) return true;
+    }
+    else{
+        // Black king — white pawns attack upward
+        BB kingBit = 1ULL << kingIdx;
+        BB pawnAttacks = ((kingBit >> 9) & ~hfile) | ((kingBit >> 7) & ~afile);
+        if(pawnAttacks & pieces[enemy][PAWN]) return true;
+    }
+
+    // Attacked by enemy knights?
+    BB knightMoves = KnightMoves(kingSq, colour); // reuse existing
+    if(knightMoves & pieces[enemy][KNIGHT]) return true;
+
+    // Attacked by enemy bishops or queens (diagonals)?
+    BB bishopQueenAttacks = BishopMoves(kingSq, colour);
+    if(bishopQueenAttacks & (pieces[enemy][BISHOP] | pieces[enemy][QUEEN])) return true;
+
+    // Attacked by enemy rooks or queens (straights)?
+    BB rookQueenAttacks = RookMoves(kingSq, colour);
+    if(rookQueenAttacks & (pieces[enemy][ROOK] | pieces[enemy][QUEEN])) return true;
+
+    // Attacked by enemy king?
+    BB kingAttacks = KingMoves(kingSq, colour);
+    if(kingAttacks & pieces[enemy][KING]) return true;
+
+    return false;
+}

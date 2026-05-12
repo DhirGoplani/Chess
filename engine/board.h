@@ -75,4 +75,5 @@ public:
     // New functions
     Move makeMove(string from, string to, int promotion = -1);
     void unmakeMove(Move& move);
+    bool isInCheck(int colour);  
 };
