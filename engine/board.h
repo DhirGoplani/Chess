@@ -51,7 +51,7 @@ public:
     static const BB afile = 0x0101010101010101ULL;
     static const BB hfile = afile << 7;
     static const BB rank1 = 0x00000000000000FFULL;
-    const BB rank8 = rank1 << 56;
+    static const BB rank8 = rank1 << 56;
     int sideToMove = 0;
     BB pieces[2][6];
     string enPassantSquare = "";  
