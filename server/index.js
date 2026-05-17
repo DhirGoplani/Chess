@@ -4,6 +4,8 @@ import { Server } from "socket.io";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRouter from "./auth/authRoutes.js";
+import pvcRouter from "./pvc/pvcRoutes.js";
+import { pvcStore } from "./pvc/pvcStore.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -34,6 +36,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/pvc",  pvcRouter);
+setInterval(() => pvcStore.cleanup(), 60 * 60 * 1000);
 
 io.on("connection", (socket) => {
   console.log("Player connected:", socket.id);
