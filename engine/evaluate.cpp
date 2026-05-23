@@ -1,6 +1,6 @@
 #include"board.h"
 #include<string>
-#include<bit>
+#include<bitset>
 using namespace std;
 
 static const int MATERIAL[6] = {100, 500, 325, 330, 900, 20000}; // Pawn Rook Knight Bishop Queen King in that order

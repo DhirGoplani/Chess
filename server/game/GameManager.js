@@ -1,9 +1,9 @@
-const ChessGame = require('./ChessGame');
+import ChessGame from './ChessGame.js';
 
 class GameManager {
   constructor() {
-    this.games = new Map(); 
-    this.playerGameMap = new Map();
+    this.games = new Map();
+    this.playerGameMap = new Map();//using map to store the game id's
   }
 
   createGame(gameId, player1, player2) {
@@ -43,4 +43,4 @@ class GameManager {
   }
 }
 
-module.exports = new GameManager();
+export default new GameManager();

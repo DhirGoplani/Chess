@@ -43,7 +43,7 @@ export default function Board({
 
     // It's not the player's turn
     const turnColour = chess.turn() === "w" ? "white" : "black";
-    if (turnColour !== playerColour) return;
+    // if (turnColour !== playerColour) return;
 
     const piece = chess.get(square);
 
@@ -90,7 +90,49 @@ export default function Board({
     setSelected(null);
     setLegalDests([]);
   }, [selected, legalDests, chess, playerColour, engineThinking, onMove]);
+// const handleSquareClick = useCallback((square) => {
+//     if (engineThinking) return;
 
+//     const piece = chess.get(square);
+
+//     if (!selected) {
+//       if (!piece) return;
+//       const moves = chess.moves({ square, verbose: true });
+//       if (moves.length === 0) return;
+//       setSelected(square);
+//       setLegalDests(moves.map((m) => m.to));
+//       return;
+//     }
+
+//     if (selected === square) {
+//       setSelected(null);
+//       setLegalDests([]);
+//       return;
+//     }
+
+//     if (piece && piece.color === chess.get(selected)?.color) {
+//       const moves = chess.moves({ square, verbose: true });
+//       setSelected(square);
+//       setLegalDests(moves.map((m) => m.to));
+//       return;
+//     }
+
+//     if (legalDests.includes(square)) {
+//       const movingPiece = chess.get(selected);
+//       const isPromotion =
+//         movingPiece?.type === "p" &&
+//         ((chess.turn() === "w" && square[1] === "8") ||
+//          (chess.turn() === "b" && square[1] === "1"));
+
+//       setSelected(null);
+//       setLegalDests([]);
+//       onMove(selected, square, isPromotion ? "q" : undefined);
+//       return;
+//     }
+
+//     setSelected(null);
+//     setLegalDests([]);
+//   }, [selected, legalDests, chess, engineThinking, onMove]);
   // Flip board so player always faces up
   const displayRanks = playerColour === "black" ? [...RANKS].reverse() : RANKS;
   const displayFiles = playerColour === "black" ? [...FILES].reverse() : FILES;

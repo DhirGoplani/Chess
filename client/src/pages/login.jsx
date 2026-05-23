@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
+console.log("API URL:", import.meta.env.VITE_API_URL);
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
 export default function Login() {

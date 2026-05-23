@@ -1,4 +1,4 @@
-const { Chess } = require('chess.js');
+import { Chess } from "chess.js";
 
 class ChessGame {
   constructor(gameId, player1, player2) {
@@ -6,55 +6,56 @@ class ChessGame {
     this.chess = new Chess();
     this.players = {
       white: player1,
-      black: player2
+      black: player2,
     };
-    this.status = 'playing'; 
+    this.status = "playing";
     this.moveHistory = [];
   }
 
-  makeMove(from, to, promotion = 'q') {
+  makeMove(from, to, promotion = "q") {
     try {
       const move = this.chess.move({ from, to, promotion });
+      if (!move) return { success: false, message: "Invalid move" };
 
-      if (!move) return { success: false, message: 'Invalid move' };
+      this.moveHistory.push(move.san);//standard algebraic notation+
 
-      this.moveHistory.push(move.san);
-
-      if (this.chess.isCheckmate()) this.status = 'checkmate';
-      else if (this.chess.isDraw()) this.status = 'draw';
-      else if (this.chess.isCheck()) this.status = 'check';
-      else this.status = 'playing';
+      if (this.chess.isCheckmate()) this.status = "checkmate";
+      else if (this.chess.isDraw()) this.status = "draw";
+      else if (this.chess.isCheck()) this.status = "check";
+      else this.status = "playing";
 
       return {
         success: true,
         move,
-        board: this.chess.fen(),
+        board: this.chess.fen(),//Forsyth Edwards Notation:rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1
         status: this.status,
-        turn: this.chess.turn() === 'w' ? 'white' : 'black',
-        moveHistory: this.moveHistory
+        turn: this.chess.turn() === "w" ? "white" : "black",
+        moveHistory: this.moveHistory,
       };
-
     } catch (err) {
-      return { success: false, message: 'Invalid move' };
+      return { success: false, message: "Invalid move" };
     }
   }
+
   getPlayerColor(socketId) {
-    if (this.players.white === socketId) return 'white';
-    if (this.players.black === socketId) return 'black';
+    if (this.players.white === socketId) return "white";
+    if (this.players.black === socketId) return "black";
     return null;
   }
+
   getCurrentTurn() {
-    return this.chess.turn() === 'w' ? 'white' : 'black';
+    return this.chess.turn() === "w" ? "white" : "black";
   }
+
   getBoardState() {
     return {
       board: this.chess.fen(),
       turn: this.getCurrentTurn(),
       status: this.status,
       moveHistory: this.moveHistory,
-      players: this.players
+      players: this.players,
     };
   }
 }
 
-module.exports = ChessGame;
+export default ChessGame;

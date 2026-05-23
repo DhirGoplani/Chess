@@ -1,5 +1,5 @@
-const {v4: uuidv4} = require('uuid');
-const GameManager=require('../game/GameManager');
+import { v4 as uuidv4 } from 'uuid';
+import GameManager from '../game/GameManager.js';
 
 class MatchmakingQueue{
     constructor(){
@@ -36,4 +36,4 @@ removePlayer(socketId){
     return this.queue.length;
   }
 }
-module.exports=new MatchmakingQueue();
+export default new MatchmakingQueue();

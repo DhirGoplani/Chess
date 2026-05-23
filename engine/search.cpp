@@ -13,7 +13,7 @@ static int popLSB(BB& b) {
     int idx = __builtin_ctzll(b);  // index of lowest set bit
     b &= b - 1;                     // clear it
     return idx;
-}
+} 
 
 static string idxToSq(int idx) {
     return string(1, 'a' + (idx % 8)) + to_string(idx / 8 + 1);
