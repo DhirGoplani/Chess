@@ -6,6 +6,7 @@ import cors from "cors";
 import authRouter from "./auth/authRoutes.js";
 import pvcRouter from "./pvc/pvcRoutes.js";
 import { pvcStore } from "./pvc/pvcStore.js";
+import socketHandler from "./socket/socketHandler.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -39,13 +40,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/pvc",  pvcRouter);
 setInterval(() => pvcStore.cleanup(), 60 * 60 * 1000);
 
-io.on("connection", (socket) => {
-  console.log("Player connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("Player disconnected:", socket.id);
-  });
-});
+socketHandler(io);
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

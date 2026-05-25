@@ -38,11 +38,17 @@ export const login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
-    const token = jwt.sign(
-      { id: existingUser.id },
-      process.env.JWT_SECRET,
-      { expiresIn: "2d" }
-    );
+const token = jwt.sign(
+  { 
+    id:            existingUser.id,
+    username:      existingUser.username,
+    bullet_rating: existingUser.bullet_rating,
+    blitz_rating:  existingUser.blitz_rating,
+    rapid_rating:  existingUser.rapid_rating
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: "2d" }
+);
     res.cookie("authToken", token, COOKIE_OPTIONS);
     delete existingUser.password;
     res.status(200).json({

@@ -28,11 +28,17 @@ export const register = async (req, res) => {
       VALUES (${name}, ${username}, ${email}, ${hashedPassword})
       RETURNING id, name, username, email, bullet_rating, blitz_rating, rapid_rating, created_at
     `;
-    const token = jwt.sign(
-      { id: newUser[0].id },
-      process.env.JWT_SECRET,
-      { expiresIn: "2d" }
-    );
+const token = jwt.sign(
+  { 
+    id:            newUser[0].id,
+    username:      newUser[0].username,
+    bullet_rating: newUser[0].bullet_rating,
+    blitz_rating:  newUser[0].blitz_rating,
+    rapid_rating:  newUser[0].rapid_rating
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: "2d" }
+);
     res.cookie("authToken", token, COOKIE_OPTIONS);
 
     res.status(201).json({
