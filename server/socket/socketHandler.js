@@ -7,16 +7,15 @@ const socketHandler = (io) => {
   // ── JWT MIDDLEWARE ────────────────────────────────
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
-    if (!token) {
-      return next(new Error('No token provided'));
-    }
+    if (!token) return next(new Error('No token provided'));
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       socket.user = {
-        id:       decoded.id,
-       bullet_rating: decoded.bullet_rating ?? 800,
-      blitz_rating:  decoded.blitz_rating  ?? 800,
-      rapid_rating:  decoded.rapid_rating  ?? 800
+        id:            decoded.id,
+        username:      decoded.username,
+        bullet_rating: decoded.bullet_rating ?? 800,
+        blitz_rating:  decoded.blitz_rating  ?? 800,
+        rapid_rating:  decoded.rapid_rating  ?? 800
       };
       next();
     } catch (err) {
@@ -24,43 +23,43 @@ const socketHandler = (io) => {
     }
   });
 
+
+  setInterval(() => {
+    MatchmakingQueue.tick(io);
+  }, 5000);
+
   io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id} | User: ${socket.user.username}`);
 
-    // ── FIND MATCH
-    socket.on('findMatch', () => {
-      console.log(`Finding match for: ${socket.user.username}`);
+    // ── FIND MATCH ──────────────────────────────────
+    socket.on('findMatch', ({ format }) => {
+      if (!['bullet', 'blitz', 'rapid'].includes(format)) {
+        socket.emit('error', { message: 'Invalid format' });
+        return;
+      }
 
-      const match = MatchmakingQueue.addPlayer(socket.id);
+      const rating = socket.user[`${format}_rating`] ?? 800;
+
+      const playerInfo = {
+        socketId: socket.id,
+        userId:   socket.user.id,
+        username: socket.user.username,
+        rating,
+        format
+      };
+
+      console.log(`[Matchmaking] ${socket.user.username} looking for ${format} | Rating: ${rating}`);
+
+      const match = MatchmakingQueue.addPlayer(playerInfo);
 
       if (match) {
-        const { gameId, players } = match;
-
-        io.sockets.sockets.get(players.white)?.join(gameId);
-        io.sockets.sockets.get(players.black)?.join(gameId);
-
-        const whiteSocket = io.sockets.sockets.get(players.white);
-        const blackSocket = io.sockets.sockets.get(players.black);
-
-        io.to(players.white).emit('gameStart', {
-          gameId,
-          color:    'white',
-          opponent: blackSocket?.user?.username ?? 'Opponent'
-        });
-
-        io.to(players.black).emit('gameStart', {
-          gameId,
-          color:    'black',
-          opponent: whiteSocket?.user?.username ?? 'Opponent'
-        });
-
-        console.log(`Game started: ${gameId}`);
+        MatchmakingQueue._emitMatchFound(io, match);
       } else {
         socket.emit('waiting', { message: 'Waiting for opponent...' });
       }
     });
 
-    // ── MAKE MOVE 
+    // ── MAKE MOVE ────────────────────────────────────
     socket.on('makeMove', ({ gameId, from, to, promotion }) => {
       const game = GameManager.getGame(gameId);
 
@@ -99,7 +98,7 @@ const socketHandler = (io) => {
       }
     });
 
-    // ── RESIGN
+    // ── RESIGN ───────────────────────────────────────
     socket.on('resign', ({ gameId }) => {
       const game = GameManager.getGame(gameId);
       if (!game) return;
@@ -114,7 +113,7 @@ const socketHandler = (io) => {
       GameManager.deleteGame(gameId);
     });
 
-    // ── DISCONNECT 
+    // ── DISCONNECT ───────────────────────────────────
     socket.on('disconnect', () => {
       console.log(`Player disconnected: ${socket.user?.username}`);
 
