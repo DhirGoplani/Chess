@@ -31,7 +31,7 @@ const socketHandler = (io) => {
   io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id} | User: ${socket.user.username}`);
 
-    // ── FIND MATCH ──────────────────────────────────
+    // ── FIND MATCH
     socket.on('findMatch', ({ format }) => {
       if (!['bullet', 'blitz', 'rapid'].includes(format)) {
         socket.emit('error', { message: 'Invalid format' });
@@ -94,11 +94,12 @@ const socketHandler = (io) => {
           status: result.status,
           winner: result.status === 'checkmate' ? playerColor : 'draw'
         });
-        GameManager.deleteGame(gameId);
+        GameManager.endGame(gameId, winnerId, result.status)
+      .then(() => GameManager.deleteGame(gameId));
       }
     });
 
-    // ── RESIGN ───────────────────────────────────────
+    // ── RESIGN 
     socket.on('resign', ({ gameId }) => {
       const game = GameManager.getGame(gameId);
       if (!game) return;
@@ -110,10 +111,11 @@ const socketHandler = (io) => {
         status: 'resign',
         winner
       });
-      GameManager.deleteGame(gameId);
+        GameManager.endGame(gameId, winnerId, 'resign')
+    .then(() => GameManager.deleteGame(gameId));
     });
 
-    // ── DISCONNECT ───────────────────────────────────
+    // ── DISCONNECT 
     socket.on('disconnect', () => {
       console.log(`Player disconnected: ${socket.user?.username}`);
 
@@ -124,7 +126,8 @@ const socketHandler = (io) => {
         io.to(game.gameId).emit('opponentLeft', {
           message: 'Opponent disconnected! You win!'
         });
-        GameManager.deleteGame(game.gameId);
+          GameManager.endGame(game.gameId, winnerId, 'disconnect')
+      .then(() => GameManager.deleteGame(game.gameId));
       }
     });
   });

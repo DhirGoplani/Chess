@@ -67,7 +67,7 @@ class MatchmakingQueue {
       : [opponent, player];
 
     const gameId = uuidv4();
-    GameManager.createGame(gameId, white.socketId, black.socketId);
+   GameManager.createGame(gameId, white, black);
 
     return {
       gameId,
