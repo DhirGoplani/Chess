@@ -4,7 +4,7 @@ import MatchmakingQueue from '../matchmaking/MatchmakingQueue.js';
 
 const socketHandler = (io) => {
 
-  // ── JWT MIDDLEWARE ────────────────────────────────
+  // ── JWT MIDDLEWARE 
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('No token provided'));
@@ -30,7 +30,10 @@ const socketHandler = (io) => {
 
   io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id} | User: ${socket.user.username}`);
-
+    socket.on('cancelSearch', () => {
+  MatchmakingQueue.removePlayer(socket.id);
+  console.log(`[Matchmaking] ${socket.user.username} cancelled search`);
+   });
     // ── FIND MATCH
     socket.on('findMatch', ({ format }) => {
       if (!['bullet', 'blitz', 'rapid'].includes(format)) {
@@ -59,7 +62,7 @@ const socketHandler = (io) => {
       }
     });
 
-    // ── MAKE MOVE ────────────────────────────────────
+    // ── MAKE MOVE
     socket.on('makeMove', ({ gameId, from, to, promotion }) => {
       const game = GameManager.getGame(gameId);
 
@@ -90,6 +93,9 @@ const socketHandler = (io) => {
       });
 
       if (result.status === 'checkmate' || result.status === 'draw') {
+      const winnerId = result.status === 'checkmate'
+      ? (playerColor === 'white' ? game.whitePlayer.userId : game.blackPlayer.userId)
+      : null;
         io.to(gameId).emit('gameOver', {
           status: result.status,
           winner: result.status === 'checkmate' ? playerColor : 'draw'
@@ -116,20 +122,27 @@ const socketHandler = (io) => {
     });
 
     // ── DISCONNECT 
-    socket.on('disconnect', () => {
-      console.log(`Player disconnected: ${socket.user?.username}`);
+socket.on('disconnect', () => {
+  console.log(`Player disconnected: ${socket.user?.username}`);
 
-      MatchmakingQueue.removePlayer(socket.id);
+  MatchmakingQueue.removePlayer(socket.id);
 
-      const game = GameManager.removePlayer(socket.id);
-      if (game) {
-        io.to(game.gameId).emit('opponentLeft', {
-          message: 'Opponent disconnected! You win!'
-        });
-          GameManager.endGame(game.gameId, winnerId, 'disconnect')
-      .then(() => GameManager.deleteGame(game.gameId));
-      }
+  const game = GameManager.getGameByPlayer(socket.id);
+  if (game) {
+    const playerColor = game.getPlayerColor(socket.id);
+    const winner      = playerColor === 'white' ? 'black' : 'white';
+    const winnerId    = playerColor === 'white'
+      ? game.blackPlayer.userId
+      : game.whitePlayer.userId;
+
+    io.to(game.gameId).emit('opponentLeft', {
+      message: 'Opponent disconnected! You win!'
     });
+
+    GameManager.endGame(game.gameId, winnerId, 'disconnect')
+      .then(() => GameManager.deleteGame(game.gameId));
+  }
+});
   });
 };
 

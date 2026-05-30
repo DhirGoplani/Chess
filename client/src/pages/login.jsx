@@ -35,9 +35,11 @@ export default function Login() {
       if(!res.ok){
         setError(data.message || "Login failed");
       }
-      else{
-        console.log("Logged in:", data.user);
-      }
+else {
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(data.user));
+  window.location.href = "/lobby";  // redirect to lobby
+}
     } catch (err) {
       setError("Network error. Please try again.");
     } finally {

@@ -60,7 +60,7 @@ class GameManager {
     console.log(`[GameManager] Game ${gameId} ended — result: ${result}`);
   }
 
-  async _updateRatings(game, winnerId, result) {
+async _updateRatings(game, winnerId, result) {
     const white  = game.whitePlayer;
     const black  = game.blackPlayer;
     const format = game.format;
@@ -68,7 +68,6 @@ class GameManager {
     const whiteRating = white.rating;
     const blackRating = black.rating;
 
-    // ELO calculation
     const expectedWhite = 1 / (1 + Math.pow(10, (blackRating - whiteRating) / 400));
     const expectedBlack = 1 - expectedWhite;
 
@@ -84,26 +83,25 @@ class GameManager {
       actualBlack = 1;
     }
 
-    const K = 32; // K factor
+    const K = 32;
     const whiteChange = Math.round(K * (actualWhite - expectedWhite));
     const blackChange = Math.round(K * (actualBlack - expectedBlack));
 
     const newWhiteRating = whiteRating + whiteChange;
     const newBlackRating = blackRating + blackChange;
 
-    const ratingColumn = `${format}_rating`;
+    // ← fix: no dynamic columns
+    if (format === 'bullet') {
+      await sql`UPDATE users SET bullet_rating = ${newWhiteRating} WHERE id = ${white.userId}`;
+      await sql`UPDATE users SET bullet_rating = ${newBlackRating} WHERE id = ${black.userId}`;
+    } else if (format === 'blitz') {
+      await sql`UPDATE users SET blitz_rating = ${newWhiteRating} WHERE id = ${white.userId}`;
+      await sql`UPDATE users SET blitz_rating = ${newBlackRating} WHERE id = ${black.userId}`;
+    } else {
+      await sql`UPDATE users SET rapid_rating = ${newWhiteRating} WHERE id = ${white.userId}`;
+      await sql`UPDATE users SET rapid_rating = ${newBlackRating} WHERE id = ${black.userId}`;
+    }
 
-    // Update ratings in users table
-    await sql`
-      UPDATE users SET ${sql(ratingColumn)} = ${newWhiteRating}
-      WHERE id = ${white.userId}
-    `;
-    await sql`
-      UPDATE users SET ${sql(ratingColumn)} = ${newBlackRating}
-      WHERE id = ${black.userId}
-    `;
-
-    // Save rating history
     await sql`
       INSERT INTO rating_history (user_id, game_id, game_type, rating_before, rating_after, change)
       VALUES (${white.userId}, ${game.gameId}, ${format}, ${whiteRating}, ${newWhiteRating}, ${whiteChange})
@@ -116,7 +114,6 @@ class GameManager {
     console.log(`[ELO] White: ${whiteRating} → ${newWhiteRating} (${whiteChange > 0 ? '+' : ''}${whiteChange})`);
     console.log(`[ELO] Black: ${blackRating} → ${newBlackRating} (${blackChange > 0 ? '+' : ''}${blackChange})`);
   }
-
   deleteGame(gameId) {
     const game = this.games.get(gameId);
     if (game) {
