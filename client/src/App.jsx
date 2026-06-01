@@ -49,6 +49,8 @@ import Register from './pages/register'
 import Lobby from './pages/lobby'
 import Game from './pages/game'
 import Home from './pages/home'
+import PvcLobby from './pages/pvc/PvcLobby'
+import PvcGame from './pages/pvc/PvcGame'
 function App() {
   return (
     <BrowserRouter>
@@ -58,6 +60,8 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/lobby" element={<Lobby />} />
         <Route path="/game/:gameId" element={<Game />} />
+        <Route path="/pvc" element={<PvcLobby />} />
+        <Route path="/pvc/game/:gameId" element={<PvcGame />} />
       </Routes>
     </BrowserRouter>
   )

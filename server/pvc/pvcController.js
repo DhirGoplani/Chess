@@ -135,5 +135,9 @@ function resolveGameover(reason, moves) {
     const winner = lastMove?.by === "engine" ? "engine" : "player";
     return { reason: "checkmate", winner };
   }
-  return { reason: "stalemate", winner: "draw" };
+  const drawReasons = ["stalemate", "repetition", "insufficient", "fifty-move", "draw"];
+  if(drawReasons.includes(reason)){
+    return { reason, winner: "draw" };
+  }
+  return { reason: "draw", winner: "draw" };
 }
