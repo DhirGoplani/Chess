@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Eye, EyeOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -11,19 +9,19 @@ function getPasswordStrength(password) {
   if (/[A-Z]/.test(password)) score++;
   if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
-  const colors = ["#e08080", "#d4a060", "#c9a96e", "#7aab6e"];
+  const colors = ["#e08080", "#d4a060", "#c9a96e", "#81b64c"];
   const labels = ["Weak", "Fair", "Good", "Strong"];
   return { score, label: labels[score - 1] || "Weak", color: colors[score - 1] || colors[0] };
 }
 
 export default function Register() {
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [name, setName]               = useState("");
+  const [username, setUsername]       = useState("");
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState("");
 
   const strength = getPasswordStrength(password);
 
@@ -31,7 +29,6 @@ export default function Register() {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
         method: "POST",
@@ -39,16 +36,13 @@ export default function Register() {
         credentials: "include",
         body: JSON.stringify({ name, username, email, password }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.message || "Registration failed");
       } else {
         console.log("Registered:", data.user);
-        // e.g. navigate("/dashboard");
       }
-    } catch (err) {
+    } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -56,8 +50,9 @@ export default function Register() {
   };
 
   return (
-    <div className="register-root">
-      <div className="chessboard" aria-hidden="true">
+    <div className="root">
+      {/* Chessboard background */}
+      <div className="board-bg" aria-hidden="true">
         {SQUARES.map((i) => {
           const row = Math.floor(i / 8);
           const col = i % 8;
@@ -66,6 +61,12 @@ export default function Register() {
         })}
       </div>
       <div className="vignette" aria-hidden="true" />
+
+      {/* Logo */}
+      <div className="logo">
+        <span className="logo-icon">♞</span>
+        <span className="logo-text">ChessMate</span>
+      </div>
 
       <div className="card">
         <div className="card-header">
@@ -112,7 +113,7 @@ export default function Register() {
                 />
               </div>
               {username.length > 0 && (
-                <span className="field-hint" style={{ color: username.length < 3 ? "#e08080" : "#a07840" }}>
+                <span className="field-hint" style={{ color: username.length < 3 ? "#e08080" : "#81b64c" }}>
                   {username.length < 3 ? "Too short" : `@${username}`}
                 </span>
               )}
@@ -185,56 +186,101 @@ export default function Register() {
           )}
 
           <button type="submit" className="btn-submit" disabled={loading}>
-            {loading ? (
-              <span className="spinner" aria-label="Loading">♻</span>
-            ) : (
-              "Create Account"
-            )}
+            {loading
+              ? <span className="spinner" aria-label="Loading">◌</span>
+              : "Create Account"
+            }
           </button>
-
-
         </form>
 
+        <div className="divider"><span>or</span></div>
+
         <div className="card-footer">
-            <a href="/" className="link">Already have an account? Sign in</a>
+          <p className="footer-text">
+            Already have an account?{" "}
+            <a href="/" className="link">Sign in</a>
+          </p>
         </div>
       </div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .register-root {
+        :root {
+          --bg:           #1a0e07;
+          --bg2:          #2c1a0e;
+          --bg3:          #3d2314;
+          --surface:      #4a2c18;
+          --board-light:  #f0d9b5;
+          --board-dark:   #b58863;
+          --accent:       #81b64c;
+          --accent-dark:  #5a8a2e;
+          --gold:         #c4a35a;
+          --text:         #f0e6d3;
+          --text-muted:   #c4a882;
+          --text-faint:   #8a7055;
+          --border:       rgba(196,163,90,0.2);
+          --border-focus: rgba(129,182,76,0.5);
+          --error-bg:     rgba(200,60,60,0.15);
+          --error-border: rgba(200,60,60,0.4);
+          --error-text:   #f08080;
+        }
+
+        .root {
           min-height: 100vh;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          background: #f5f0e8;
+          background: var(--bg);
           position: relative;
           overflow: hidden;
           font-family: 'DM Sans', sans-serif;
+          padding: 24px 16px;
         }
 
-        .chessboard {
+        .board-bg {
           position: absolute;
           inset: 0;
           display: grid;
           grid-template-columns: repeat(8, 1fr);
           grid-template-rows: repeat(8, 1fr);
-          opacity: 0.22;
-          transform: rotate(12deg) scale(1.4);
+          opacity: 0.08;
+          transform: rotate(15deg) scale(1.6);
           pointer-events: none;
         }
         .sq { width: 100%; height: 100%; }
-        .sq-light { background: #e8d5b0; }
-        .sq-dark  { background: #8b6914; }
+        .sq-light { background: var(--board-light); }
+        .sq-dark  { background: var(--board-dark); }
 
         .vignette {
           position: absolute;
           inset: 0;
-          background: radial-gradient(ellipse at center, transparent 30%, #f5f0e8 85%);
+          background: radial-gradient(ellipse at center, transparent 20%, var(--bg) 80%);
           pointer-events: none;
+        }
+
+        .logo {
+          position: relative;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 28px;
+        }
+        .logo-icon {
+          font-size: 1.6rem;
+          color: var(--accent);
+          filter: drop-shadow(0 0 8px rgba(129,182,76,0.5));
+        }
+        .logo-text {
+          font-family: 'Playfair Display', serif;
+          font-size: 1.3rem;
+          font-weight: 700;
+          color: var(--text);
+          letter-spacing: 0.02em;
         }
 
         .card {
@@ -242,16 +288,18 @@ export default function Register() {
           z-index: 10;
           width: 100%;
           max-width: 460px;
-          background: rgba(255, 252, 245, 0.92);
-          border: 1px solid rgba(180, 140, 70, 0.2);
-          border-radius: 4px;
-          padding: 44px 40px 32px;
-          backdrop-filter: blur(16px);
-          box-shadow: 0 8px 40px rgba(120, 80, 20, 0.12), 0 1px 3px rgba(0,0,0,0.06);
-          animation: fadeUp 0.5s ease both;
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 40px 36px 32px;
+          box-shadow:
+            0 0 0 1px rgba(196,163,90,0.06),
+            0 20px 60px rgba(0,0,0,0.6),
+            inset 0 1px 0 rgba(196,163,90,0.1);
+          animation: fadeUp 0.45s ease both;
         }
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(24px); }
+          from { opacity: 0; transform: translateY(20px); }
           to   { opacity: 1; transform: translateY(0); }
         }
 
@@ -260,31 +308,31 @@ export default function Register() {
         .queen-icon {
           font-size: 2.4rem;
           display: block;
-          margin-bottom: 10px;
-          filter: drop-shadow(0 2px 8px rgba(160,120,64,0.3));
-          animation: pulse 3s ease-in-out infinite;
+          margin-bottom: 14px;
+          color: var(--gold);
+          animation: glow 3s ease-in-out infinite;
         }
-        @keyframes pulse {
-          0%, 100% { filter: drop-shadow(0 2px 8px rgba(160,120,64,0.2)); }
-          50%       { filter: drop-shadow(0 4px 16px rgba(160,120,64,0.5)); }
+        @keyframes glow {
+          0%,100% { filter: drop-shadow(0 2px 6px rgba(196,163,90,0.2)); }
+          50%      { filter: drop-shadow(0 4px 20px rgba(196,163,90,0.6)); }
         }
 
         .title {
           font-family: 'Playfair Display', serif;
           font-size: 1.75rem;
           font-weight: 700;
-          color: #2c1f08;
-          letter-spacing: -0.02em;
-          margin-bottom: 5px;
+          color: var(--text);
+          letter-spacing: -0.01em;
+          margin-bottom: 6px;
         }
         .subtitle {
-          font-size: 0.875rem;
-          color: #9a7f52;
-          letter-spacing: 0.04em;
+          font-size: 0.85rem;
+          color: var(--text-muted);
           font-weight: 300;
+          letter-spacing: 0.03em;
         }
 
-        .form { display: flex; flex-direction: column; gap: 16px; }
+        .form { display: flex; flex-direction: column; gap: 18px; }
 
         .row {
           display: grid;
@@ -295,10 +343,10 @@ export default function Register() {
         .field-group { display: flex; flex-direction: column; gap: 6px; }
 
         .label {
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: #7a6340;
-          letter-spacing: 0.08em;
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          letter-spacing: 0.1em;
           text-transform: uppercase;
         }
 
@@ -306,60 +354,56 @@ export default function Register() {
 
         .input-icon {
           position: absolute;
-          left: 12px;
+          left: 13px;
           font-size: 0.95rem;
-          color: #b8976a;
+          color: var(--text-faint);
           pointer-events: none;
           transition: color 0.2s;
         }
+
         .input {
           width: 100%;
-          background: #fff;
-          border: 1px solid #ddd0b8;
-          border-radius: 3px;
-          padding: 11px 40px 11px 38px;
-          color: #2c1f08;
+          background: var(--bg3);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          padding: 11px 42px 11px 40px;
+          color: var(--text);
           font-family: 'DM Sans', sans-serif;
           font-size: 0.92rem;
-          font-weight: 400;
           outline: none;
           transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .input::placeholder { color: #c4b08a; }
+        .input::placeholder { color: var(--text-faint); }
         .input:focus {
-          border-color: #a07840;
-          box-shadow: 0 0 0 3px rgba(160,120,64,0.1);
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px var(--border-focus);
         }
-        .input:focus ~ .input-icon,
-        .input-wrap:focus-within .input-icon { color: #a07840; }
-        .input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .input-wrap:focus-within .input-icon { color: var(--accent); }
+        .input:disabled { opacity: 0.45; cursor: not-allowed; }
 
         .toggle-pw {
           position: absolute;
-          right: 10px;
+          right: 11px;
           background: none;
           border: none;
           cursor: pointer;
-          font-size: 0.9rem;
-          color: #b8976a;
+          font-size: 0.85rem;
+          color: var(--text-faint);
           padding: 4px;
           transition: color 0.2s;
           line-height: 1;
         }
-        .toggle-pw:hover { color: #a07840; }
+        .toggle-pw:hover { color: var(--text-muted); }
 
         .field-hint {
           font-size: 0.7rem;
           letter-spacing: 0.03em;
-          animation: fadeIn 0.2s ease;
         }
-        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 
-        /* Password strength */
         .strength-bar {
           height: 3px;
           border-radius: 2px;
-          background: #ddd0b8;
+          background: var(--surface);
           overflow: hidden;
           margin-top: 2px;
         }
@@ -375,52 +419,41 @@ export default function Register() {
           text-transform: uppercase;
         }
 
-        /* Error */
         .error {
-          background: rgba(180, 60, 60, 0.12);
-          border: 1px solid rgba(180, 60, 60, 0.3);
-          border-radius: 3px;
-          padding: 9px 12px;
-          color: #c07070;
+          background: var(--error-bg);
+          border: 1px solid var(--error-border);
+          border-radius: 4px;
+          padding: 10px 14px;
+          color: var(--error-text);
           font-size: 0.83rem;
           display: flex;
-          gap: 7px;
+          gap: 8px;
           align-items: center;
-          animation: fadeIn 0.2s ease both;
         }
 
-        /* Submit */
         .btn-submit {
           width: 100%;
           padding: 13px;
-          background: linear-gradient(135deg, #c9a96e 0%, #a07840 100%);
+          background: var(--accent);
           border: none;
-          border-radius: 3px;
-          color: #1a0f00;
+          border-radius: 4px;
+          color: #0d1f05;
           font-family: 'DM Sans', sans-serif;
           font-size: 0.95rem;
-          font-weight: 600;
-          letter-spacing: 0.04em;
+          font-weight: 700;
+          letter-spacing: 0.05em;
           cursor: pointer;
-          transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+          transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
           margin-top: 4px;
-          position: relative;
-          overflow: hidden;
-        }
-        .btn-submit::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
-          pointer-events: none;
+          text-transform: uppercase;
         }
         .btn-submit:hover:not(:disabled) {
-          opacity: 0.92;
+          background: #91cc58;
           transform: translateY(-1px);
-          box-shadow: 0 6px 24px rgba(201,169,110,0.3);
+          box-shadow: 0 6px 24px rgba(129,182,76,0.35);
         }
         .btn-submit:active:not(:disabled) { transform: translateY(0); }
-        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
         .spinner {
           display: inline-block;
@@ -428,26 +461,35 @@ export default function Register() {
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Footer */
-        .card-footer {
-          margin-top: 20px;
-          text-align: center;
+        .divider {
           display: flex;
-          justify-content: center;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
+          margin: 22px 0 0;
+          color: var(--text-faint);
+          font-size: 0.75rem;
+          letter-spacing: 0.08em;
         }
+        .divider::before,
+        .divider::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: var(--border);
+        }
+
+        .card-footer { margin-top: 18px; text-align: center; }
+        .footer-text { font-size: 0.82rem; color: var(--text-faint); }
         .link {
-          font-size: 0.82rem;
-          color: #9a7f52;
+          color: var(--accent);
           text-decoration: none;
+          font-weight: 500;
           transition: color 0.2s;
         }
-        .link:hover { color: #a07840; }
-        .divider { color: #c4b08a; font-size: 0.8rem; }
+        .link:hover { color: #91cc58; }
 
         @media (max-width: 520px) {
-          .card { padding: 36px 20px 28px; margin: 16px; }
+          .card { padding: 32px 22px 26px; margin: 16px; }
           .title { font-size: 1.5rem; }
           .row { grid-template-columns: 1fr; }
         }

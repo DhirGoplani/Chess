@@ -25,9 +25,7 @@ export default function Game() {
   const [opponent, setOpponent]         = useState({});
   const [me, setMe]                     = useState({});
   const moveListRef                     = useRef(null);
-
-  // Keep a ref to the pre-game rating so we can compute delta in the popup
-  const preGameRatingRef = useRef(null);
+  const preGameRatingRef                = useRef(null);
 
   const gameInfo = JSON.parse(localStorage.getItem("gameInfo") || "{}");
   const user     = JSON.parse(localStorage.getItem("user")     || "{}");
@@ -41,42 +39,26 @@ export default function Game() {
     setOpponent(gameInfo.opponent || {});
     setTimers({ white: timeControl, black: timeControl });
 
-    // ── FETCH FRESH RATING FROM SERVER ──────────────────────────────────────
-    // localStorage only updates on fresh login, so we always fetch current
-    // rating from the API to ensure the player bar shows the correct value.
     const token = localStorage.getItem("token");
-
-    fetch("/api/users/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed to fetch user");
-        return r.json();
-      })
+    fetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         const freshRating = data[`${format}_rating`] ?? 800;
-
-        // Sync localStorage so it stays consistent after this point
         const stored = JSON.parse(localStorage.getItem("user") || "{}");
         stored[`${format}_rating`] = freshRating;
         localStorage.setItem("user", JSON.stringify(stored));
-
         preGameRatingRef.current = freshRating;
         setMe({ username: data.username, rating: freshRating });
       })
       .catch(() => {
-        // Fallback to localStorage if the request fails (e.g. offline)
         const fallbackRating = user[`${format}_rating`] ?? 800;
         preGameRatingRef.current = fallbackRating;
         setMe({ username: user.username, rating: fallbackRating });
       });
-    // ────────────────────────────────────────────────────────────────────────
 
     const socket = connectSocket();
 
-    socket.on("timerUpdate", ({ white, black }) => {
-      setTimers({ white, black });
-    });
+    socket.on("timerUpdate", ({ white, black }) => setTimers({ white, black }));
 
     socket.on("moveMade", ({ from, to, board, moveHistory: mh }) => {
       chess.load(board);
@@ -95,25 +77,15 @@ export default function Game() {
       setResult({ winner: colour, reason: "disconnect" });
     });
 
-    // ratingUpdate → update the player bar AND the result popup atomically
     socket.on("ratingUpdate", ({ newRating, format: fmt }) => {
-      // Update the player bar
       setMe((prev) => {
-        const updated = { ...prev, rating: newRating };
-
-        // Keep localStorage in sync
         const stored = JSON.parse(localStorage.getItem("user") || "{}");
         stored[`${fmt}_rating`] = newRating;
         localStorage.setItem("user", JSON.stringify(stored));
-
-        return updated;
+        return { ...prev, rating: newRating };
       });
-
-      // Attach newRating (and pre-game rating for delta) to the result popup
       setResult((prev) =>
-        prev
-          ? { ...prev, newRating, oldRating: preGameRatingRef.current }
-          : prev
+        prev ? { ...prev, newRating, oldRating: preGameRatingRef.current } : prev
       );
     });
 
@@ -127,63 +99,58 @@ export default function Game() {
   }, []);
 
   useEffect(() => {
-    if (moveListRef.current) {
+    if (moveListRef.current)
       moveListRef.current.scrollTop = moveListRef.current.scrollHeight;
-    }
   }, [moveHistory]);
 
-  const handleMove = (from, to, promotion) => {
-    const socket = connectSocket();
-    socket.emit("makeMove", { gameId, from, to, promotion });
-  };
-
+  const handleMove   = (from, to, promotion) => connectSocket().emit("makeMove", { gameId, from, to, promotion });
   const handleResign = () => {
-    const socket = connectSocket();
-    socket.emit("resign", { gameId });
+    connectSocket().emit("resign", { gameId });
     setGameStatus("over");
-    setResult({
-      winner: playerColour === "white" ? "black" : "white",
-      reason: "resign",
-    });
+    setResult({ winner: playerColour === "white" ? "black" : "white", reason: "resign" });
   };
-
   const handleBackToLobby = () => navigate("/home");
 
   const pairedMoves = [];
-  for (let i = 0; i < moveHistory.length; i += 2) {
+  for (let i = 0; i < moveHistory.length; i += 2)
     pairedMoves.push([moveHistory[i], moveHistory[i + 1] ?? ""]);
-  }
 
   const opponentColour = playerColour === "white" ? "black" : "white";
+  const ratingDelta = result?.newRating != null && result?.oldRating != null
+    ? result.newRating - result.oldRating : null;
 
-  // Rating delta for the popup (only when ratingUpdate has arrived)
-  const ratingDelta =
-    result?.newRating != null && result?.oldRating != null
-      ? result.newRating - result.oldRating
-      : null;
+  const myTurn = gameStatus === "playing" && chess.turn() === (playerColour === "white" ? "w" : "b");
+  const opTurn = gameStatus === "playing" && chess.turn() === (opponentColour === "white" ? "w" : "b");
 
   return (
-    <div style={styles.root}>
+    <div style={s.root}>
 
-      {/* ── GAME RESULT POPUP ── */}
+      {/* ── RESULT POPUP ── */}
       {result && (
-        <div style={styles.overlay}>
-          <div style={styles.popup}>
-            <div style={styles.popupIcon}>
-              {result.winner === playerColour
-                ? "🏆"
+        <div style={s.overlay}>
+          <div style={s.popup}>
+            <div style={{
+              ...s.popupGlow,
+              background: result.winner === playerColour
+                ? "radial-gradient(circle, rgba(129,182,76,0.2) 0%, transparent 70%)"
                 : result.winner === "draw"
-                ? "🤝"
-                : "💀"}
+                ? "radial-gradient(circle, rgba(196,163,90,0.2) 0%, transparent 70%)"
+                : "radial-gradient(circle, rgba(200,60,60,0.15) 0%, transparent 70%)",
+            }} />
+
+            <div style={s.popupIcon}>
+              {result.winner === playerColour ? "🏆" : result.winner === "draw" ? "🤝" : "💀"}
             </div>
-            <h2 style={styles.popupTitle}>
-              {result.winner === "draw"
-                ? "Draw!"
-                : result.winner === playerColour
-                ? "You Win!"
-                : "You Lose!"}
+
+            <h2 style={{
+              ...s.popupTitle,
+              color: result.winner === playerColour ? "#81b64c"
+                : result.winner === "draw" ? "#c4a35a" : "#e05555",
+            }}>
+              {result.winner === "draw" ? "Draw!" : result.winner === playerColour ? "You Win!" : "You Lose!"}
             </h2>
-            <p style={styles.popupReason}>
+
+            <p style={s.popupReason}>
               {result.reason === "checkmate"  && "By checkmate"}
               {result.reason === "resign"     && "By resignation"}
               {result.reason === "disconnect" && "Opponent disconnected"}
@@ -192,55 +159,39 @@ export default function Game() {
               {result.reason === "timeout"    && "On time"}
             </p>
 
-            {/* New rating + delta — only shown after ratingUpdate arrives */}
             {result.newRating != null && (
-              <div style={styles.ratingRow}>
-                <span style={styles.ratingLabel}>New Rating:</span>
-                <span style={styles.ratingValue}>{result.newRating}</span>
+              <div style={s.ratingPill}>
+                <span style={s.ratingPillLabel}>Rating</span>
+                <span style={s.ratingPillValue}>{result.newRating}</span>
                 {ratingDelta !== null && (
-                  <span
-                    style={{
-                      ...styles.ratingDelta,
-                      color: ratingDelta >= 0 ? "#4caf50" : "#e53935",
-                    }}
-                  >
-                    ({ratingDelta >= 0 ? "+" : ""}{ratingDelta})
+                  <span style={{ ...s.ratingDelta, color: ratingDelta >= 0 ? "#81b64c" : "#e05555" }}>
+                    {ratingDelta >= 0 ? "▲" : "▼"} {Math.abs(ratingDelta)}
                   </span>
                 )}
               </div>
             )}
 
-            <button onClick={handleBackToLobby} style={styles.popupBtn}>
-              Back to Home
+            <button onClick={handleBackToLobby} style={s.popupBtn}>
+              ← Back to Home
             </button>
           </div>
         </div>
       )}
 
       {/* ── MAIN LAYOUT ── */}
-      <div style={styles.layout}>
+      <div style={s.layout}>
 
         {/* ── LEFT: BOARD + PLAYERS ── */}
-        <div style={styles.boardCol}>
+        <div style={s.boardCol}>
 
-          {/* Opponent bar */}
-          <div style={styles.playerBar}>
-            <span style={styles.playerIcon}>
-              {opponentColour === "white" ? "♔" : "♚"}
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={styles.playerName}>{opponent.username ?? "Opponent"}</div>
-              <div style={styles.playerRating}>Rating: {opponent.rating ?? 800}</div>
+          {/* Opponent */}
+          <div style={{ ...s.playerBar, ...(opTurn ? s.playerBarActive : {}) }}>
+            <div style={{ ...s.colorDot, background: opponentColour === "white" ? "#f0e6d3" : "#2c1a0e", border: opponentColour === "white" ? "2px solid #8a7055" : "2px solid #c4a35a" }} />
+            <div style={s.playerInfo}>
+              <div style={s.playerName}>{opponent.username ?? "Opponent"}</div>
+              <div style={s.playerRating}>{opponent.rating ?? 800}</div>
             </div>
-            <div
-              style={{
-                ...styles.timerBox,
-                ...(gameStatus === "playing" &&
-                chess.turn() === (opponentColour === "white" ? "w" : "b")
-                  ? styles.timerActive
-                  : {}),
-              }}
-            >
+            <div style={{ ...s.timerBox, ...(opTurn ? s.timerActive : {}) }}>
               {formatTime(timers[opponentColour])}
             </div>
           </div>
@@ -254,93 +205,249 @@ export default function Game() {
             engineThinking={gameStatus !== "playing"}
           />
 
-          {/* My bar */}
-          <div style={styles.playerBar}>
-            <span style={styles.playerIcon}>
-              {playerColour === "white" ? "♔" : "♚"}
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={styles.playerName}>{me.username ?? user.username ?? "You"}</div>
-              {/* me.rating is always fresh — set from API on mount, updated by ratingUpdate */}
-              <div style={styles.playerRating}>Rating: {me.rating ?? 800}</div>
+          {/* Me */}
+          <div style={{ ...s.playerBar, ...(myTurn ? s.playerBarActive : {}) }}>
+            <div style={{ ...s.colorDot, background: playerColour === "white" ? "#f0e6d3" : "#2c1a0e", border: playerColour === "white" ? "2px solid #8a7055" : "2px solid #c4a35a" }} />
+            <div style={s.playerInfo}>
+              <div style={s.playerName}>{me.username ?? user.username ?? "You"}</div>
+              <div style={s.playerRating}>{me.rating ?? 800}</div>
             </div>
-            <div
-              style={{
-                ...styles.timerBox,
-                ...(gameStatus === "playing" &&
-                chess.turn() === (playerColour === "white" ? "w" : "b")
-                  ? styles.timerActive
-                  : {}),
-              }}
-            >
+            <div style={{ ...s.timerBox, ...(myTurn ? s.timerActive : {}) }}>
               {formatTime(timers[playerColour])}
             </div>
           </div>
         </div>
 
-        {/* ── RIGHT: MOVE HISTORY + RESIGN ── */}
-        <div style={styles.sideCol}>
-          <div style={styles.sideCard}>
-            <h3 style={styles.sideTitle}>Moves</h3>
-            <div style={styles.moveList} ref={moveListRef}>
+        {/* ── RIGHT PANEL ── */}
+        <div style={s.sideCol}>
+
+          {/* Game info header */}
+          <div style={s.sideHeader}>
+            <span style={s.sideHeaderIcon}>♟</span>
+            <div>
+              <div style={s.sideHeaderTitle}>
+                {gameInfo.format?.charAt(0).toUpperCase() + gameInfo.format?.slice(1) ?? "Game"}
+              </div>
+              <div style={s.sideHeaderSub}>
+                {Math.round((gameInfo.timeControl || 600000) / 60000)} min
+              </div>
+            </div>
+            <div style={{
+              ...s.turnIndicator,
+              background: chess.turn() === "w" ? "#f0e6d3" : "#2c1a0e",
+              border: chess.turn() === "w" ? "2px solid #8a7055" : "2px solid #c4a35a",
+              boxShadow: gameStatus === "playing" ? "0 0 8px rgba(196,163,90,0.4)" : "none",
+            }} />
+          </div>
+
+          {/* Move history */}
+          <div style={s.sideCard}>
+            <div style={s.sideCardTitle}>
+              <span>Move History</span>
+              <span style={s.movesCount}>{moveHistory.length}</span>
+            </div>
+            <div style={s.moveList} ref={moveListRef}>
               {pairedMoves.length === 0 && (
-                <p style={styles.noMoves}>No moves yet</p>
+                <p style={s.noMoves}>Waiting for first move…</p>
               )}
               {pairedMoves.map(([white, black], i) => (
-                <div key={i} style={styles.moveRow}>
-                  <span style={styles.moveNum}>{i + 1}.</span>
-                  <span style={styles.moveWhite}>{white}</span>
-                  <span style={styles.moveBlack}>{black}</span>
+                <div key={i} style={{ ...s.moveRow, background: i % 2 === 0 ? "rgba(0,0,0,0.15)" : "transparent" }}>
+                  <span style={s.moveNum}>{i + 1}</span>
+                  <span style={s.moveWhite}>{white}</span>
+                  <span style={s.moveBlack}>{black}</span>
                 </div>
               ))}
             </div>
-
-            {gameStatus === "playing" && (
-              <button onClick={handleResign} style={styles.resignBtn}>
-                Resign
-              </button>
-            )}
-            {gameStatus === "over" && (
-              <button onClick={handleBackToLobby} style={styles.lobbyBtn}>
-                Back to Home
-              </button>
-            )}
           </div>
+
+          {/* Actions */}
+          {gameStatus === "playing" && (
+            <button onClick={handleResign} style={s.resignBtn}>
+              ⚑ Resign
+            </button>
+          )}
+          {gameStatus === "over" && (
+            <button onClick={handleBackToLobby} style={s.lobbyBtn}>
+              ← Back to Home
+            </button>
+          )}
         </div>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @keyframes popIn  { from { opacity:0; transform:scale(0.9) translateY(16px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+      `}</style>
     </div>
   );
 }
 
-const styles = {
-  root:         { minHeight:"100vh", background:"#f5f0e8", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans', sans-serif", padding:"24px" },
-  layout:       { display:"flex", gap:"24px", alignItems:"flex-start" },
-  boardCol:     { display:"flex", flexDirection:"column", gap:"10px" },
-  playerBar:    { display:"flex", alignItems:"center", gap:"10px", background:"rgba(255,252,245,0.95)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"6px", padding:"10px 16px" },
-  playerIcon:   { fontSize:"1.6rem" },
-  playerName:   { fontWeight:600, color:"#2c1f08", fontSize:"0.95rem" },
-  playerRating: { fontSize:"0.78rem", color:"#9a7f52" },
-  timerBox:     { background:"rgba(160,120,64,0.08)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"4px", padding:"8px 14px", fontFamily:"'Playfair Display', serif", fontSize:"1.3rem", fontWeight:700, color:"#2c1f08", minWidth:"72px", textAlign:"center" },
-  timerActive:  { background:"rgba(160,120,64,0.18)", border:"1px solid #a07840", color:"#a07840" },
-  sideCol:      { width:"220px" },
-  sideCard:     { background:"rgba(255,252,245,0.95)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"6px", padding:"16px", display:"flex", flexDirection:"column", gap:"12px", minHeight:"400px" },
-  sideTitle:    { fontFamily:"'Playfair Display', serif", fontSize:"1.1rem", color:"#2c1f08", margin:0 },
-  moveList:     { flex:1, overflowY:"auto", maxHeight:"360px", display:"flex", flexDirection:"column", gap:"4px" },
-  noMoves:      { color:"#c4b08a", fontSize:"0.85rem", textAlign:"center", marginTop:"16px" },
-  moveRow:      { display:"grid", gridTemplateColumns:"24px 1fr 1fr", gap:"4px", fontSize:"0.88rem", padding:"3px 4px", borderRadius:"3px" },
-  moveNum:      { color:"#9a7f52", fontWeight:500 },
-  moveWhite:    { color:"#2c1f08", fontWeight:500 },
-  moveBlack:    { color:"#2c1f08" },
-  resignBtn:    { width:"100%", padding:"10px", background:"transparent", border:"1px solid rgba(180,60,60,0.4)", borderRadius:"4px", color:"#c84040", fontSize:"0.9rem", cursor:"pointer", fontWeight:500 },
-  lobbyBtn:     { width:"100%", padding:"10px", background:"linear-gradient(135deg, #c9a96e 0%, #a07840 100%)", border:"none", borderRadius:"4px", color:"#1a0f00", fontSize:"0.9rem", cursor:"pointer", fontWeight:600 },
-  overlay:      { position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 },
-  popup:        { background:"rgba(255,252,245,0.98)", border:"1px solid rgba(180,140,70,0.3)", borderRadius:"8px", padding:"40px", textAlign:"center", minWidth:"280px", display:"flex", flexDirection:"column", alignItems:"center", gap:"12px" },
-  popupIcon:    { fontSize:"3rem" },
-  popupTitle:   { fontFamily:"'Playfair Display', serif", fontSize:"1.8rem", color:"#2c1f08", margin:0 },
-  popupReason:  { color:"#9a7f52", fontSize:"0.9rem", margin:0 },
-  ratingRow:    { display:"flex", alignItems:"center", gap:"6px" },
-  ratingLabel:  { color:"#9a7f52", fontSize:"0.9rem" },
-  ratingValue:  { color:"#a07840", fontSize:"0.95rem", fontWeight:700 },
-  ratingDelta:  { fontSize:"0.88rem", fontWeight:600 },
-  popupBtn:     { marginTop:"8px", padding:"12px 32px", background:"linear-gradient(135deg, #c9a96e 0%, #a07840 100%)", border:"none", borderRadius:"4px", color:"#1a0f00", fontSize:"0.95rem", fontWeight:600, cursor:"pointer" },
+const s = {
+  root: {
+    minHeight: "100vh",
+    background: "#1a0e07",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: "'DM Sans', sans-serif",
+    padding: "24px",
+  },
+  layout: { display: "flex", gap: "20px", alignItems: "flex-start" },
+
+  // BOARD COLUMN
+  boardCol: { display: "flex", flexDirection: "column", gap: "8px" },
+
+  playerBar: {
+    display: "flex", alignItems: "center", gap: "12px",
+    background: "rgba(44,26,14,0.9)",
+    border: "1px solid rgba(196,163,90,0.12)",
+    borderRadius: "6px", padding: "10px 14px",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+  },
+  playerBarActive: {
+    borderColor: "rgba(196,163,90,0.35)",
+    boxShadow: "0 0 0 1px rgba(196,163,90,0.1), 0 4px 20px rgba(0,0,0,0.3)",
+  },
+  colorDot: { width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0 },
+  playerInfo: { flex: 1 },
+  playerName: { fontWeight: 600, color: "#f0e6d3", fontSize: "0.92rem" },
+  playerRating: { fontSize: "0.72rem", color: "#8a7055", marginTop: "1px" },
+
+  timerBox: {
+    background: "rgba(0,0,0,0.3)",
+    border: "1px solid rgba(196,163,90,0.15)",
+    borderRadius: "4px", padding: "7px 14px",
+    fontFamily: "'Playfair Display', serif",
+    fontSize: "1.25rem", fontWeight: 700,
+    color: "#c4a882", minWidth: "72px", textAlign: "center",
+    transition: "all 0.2s",
+  },
+  timerActive: {
+    background: "rgba(196,163,90,0.12)",
+    borderColor: "#c4a35a", color: "#c4a35a",
+    boxShadow: "0 0 12px rgba(196,163,90,0.2)",
+  },
+
+  // SIDE COLUMN
+  sideCol: { width: "210px", display: "flex", flexDirection: "column", gap: "10px" },
+
+  sideHeader: {
+    display: "flex", alignItems: "center", gap: "10px",
+    background: "rgba(44,26,14,0.9)",
+    border: "1px solid rgba(196,163,90,0.12)",
+    borderRadius: "6px", padding: "12px 14px",
+  },
+  sideHeaderIcon: { fontSize: "1.3rem", color: "#c4a35a" },
+  sideHeaderTitle: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: "0.95rem", fontWeight: 700,
+    color: "#f0e6d3", lineHeight: 1,
+  },
+  sideHeaderSub: { fontSize: "0.7rem", color: "#8a7055", marginTop: "2px" },
+  turnIndicator: {
+    width: "10px", height: "10px",
+    borderRadius: "50%", marginLeft: "auto", flexShrink: 0,
+    transition: "all 0.3s",
+  },
+
+  sideCard: {
+    background: "rgba(44,26,14,0.9)",
+    border: "1px solid rgba(196,163,90,0.12)",
+    borderRadius: "6px", padding: "14px",
+    display: "flex", flexDirection: "column", gap: "8px",
+    flex: 1,
+  },
+  sideCardTitle: {
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    fontSize: "0.72rem", fontWeight: 600,
+    color: "#8a7055", textTransform: "uppercase", letterSpacing: "0.1em",
+  },
+  movesCount: { color: "rgba(138,112,85,0.5)", fontWeight: 400 },
+
+  moveList: {
+    overflowY: "auto", maxHeight: "420px",
+    display: "flex", flexDirection: "column", gap: "2px",
+    scrollbarWidth: "thin",
+    scrollbarColor: "rgba(196,163,90,0.2) transparent",
+  },
+  noMoves: { color: "#4a2c18", fontSize: "0.82rem", textAlign: "center", marginTop: "20px", fontStyle: "italic" },
+  moveRow: {
+    display: "grid", gridTemplateColumns: "20px 1fr 1fr",
+    gap: "4px", fontSize: "0.83rem",
+    padding: "4px 6px", borderRadius: "3px",
+  },
+  moveNum: { color: "#4a2c18", fontWeight: 600, fontSize: "0.7rem", paddingTop: "1px" },
+  moveWhite: { color: "#c4a882", fontWeight: 500 },
+  moveBlack: { color: "#8a7055" },
+
+  resignBtn: {
+    width: "100%", padding: "11px",
+    background: "transparent",
+    border: "1px solid rgba(200,60,60,0.3)",
+    borderRadius: "4px", color: "#c05050",
+    fontSize: "0.88rem", cursor: "pointer",
+    fontWeight: 500, fontFamily: "'DM Sans', sans-serif",
+    transition: "all 0.2s",
+  },
+  lobbyBtn: {
+    width: "100%", padding: "11px",
+    background: "rgba(129,182,76,0.12)",
+    border: "1px solid rgba(129,182,76,0.3)",
+    borderRadius: "4px", color: "#81b64c",
+    fontSize: "0.88rem", cursor: "pointer",
+    fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+    transition: "all 0.2s",
+  },
+
+  // POPUP
+  overlay: {
+    position: "fixed", inset: 0,
+    background: "rgba(0,0,0,0.75)",
+    backdropFilter: "blur(4px)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 100,
+    animation: "fadeIn 0.2s ease both",
+  },
+  popup: {
+    position: "relative",
+    background: "#2c1a0e",
+    border: "1px solid rgba(196,163,90,0.2)",
+    borderRadius: "10px", padding: "44px 40px",
+    textAlign: "center", minWidth: "300px",
+    display: "flex", flexDirection: "column",
+    alignItems: "center", gap: "14px",
+    boxShadow: "0 0 0 1px rgba(196,163,90,0.08), 0 32px 80px rgba(0,0,0,0.7)",
+    animation: "popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both",
+    overflow: "hidden",
+  },
+  popupGlow: { position: "absolute", inset: 0, pointerEvents: "none" },
+  popupIcon: { fontSize: "3.2rem", lineHeight: 1, position: "relative" },
+  popupTitle: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: "2rem", fontWeight: 700,
+    margin: 0, position: "relative",
+  },
+  popupReason: { color: "#8a7055", fontSize: "0.88rem", margin: 0, position: "relative", letterSpacing: "0.03em" },
+
+  ratingPill: {
+    display: "flex", alignItems: "center", gap: "8px",
+    background: "rgba(0,0,0,0.3)",
+    border: "1px solid rgba(196,163,90,0.15)",
+    borderRadius: "30px", padding: "8px 18px",
+    position: "relative",
+  },
+  ratingPillLabel: { fontSize: "0.72rem", color: "#8a7055", textTransform: "uppercase", letterSpacing: "0.08em" },
+  ratingPillValue: { fontFamily: "'Playfair Display', serif", fontSize: "1.2rem", fontWeight: 700, color: "#c4a35a" },
+  ratingDelta: { fontSize: "0.85rem", fontWeight: 700 },
+
+  popupBtn: {
+    marginTop: "4px", padding: "12px 36px",
+    background: "rgba(129,182,76,0.12)",
+    border: "1px solid rgba(129,182,76,0.35)",
+    borderRadius: "4px", color: "#81b64c",
+    fontSize: "0.92rem", fontWeight: 600,
+    cursor: "pointer", letterSpacing: "0.03em",
+    fontFamily: "'DM Sans', sans-serif",
+    position: "relative", transition: "all 0.2s",
+  },
 };
