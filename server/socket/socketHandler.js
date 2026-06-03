@@ -134,7 +134,7 @@ const socketHandler = (io) => {
       }
     });
 
-    // ── Resign ────────────────────────────────────────────────────────────
+    // Resign 
     socket.on('resign', ({ gameId }) => {
       const game = GameManager.getGame(gameId);
       if (!game) return;
@@ -157,7 +157,7 @@ const socketHandler = (io) => {
         .catch(err => console.error('[socketHandler] resign endGame error:', err.message));
     });
 
-    // ── Disconnect ────────────────────────────────────────────────────────
+    // Disconnect 
     socket.on('disconnect', () => {
       console.log(`Player disconnected: ${socket.user?.username}`);
 

@@ -26,17 +26,51 @@ export default function Game() {
   const [me, setMe]                     = useState({});
   const moveListRef                     = useRef(null);
 
+  // Keep a ref to the pre-game rating so we can compute delta in the popup
+  const preGameRatingRef = useRef(null);
+
   const gameInfo = JSON.parse(localStorage.getItem("gameInfo") || "{}");
   const user     = JSON.parse(localStorage.getItem("user")     || "{}");
 
   useEffect(() => {
     const colour      = gameInfo.color       || "white";
     const timeControl = gameInfo.timeControl || 600000;
+    const format      = gameInfo.format      || "rapid";
 
     setPlayerColour(colour);
     setOpponent(gameInfo.opponent || {});
-    setMe({ username: user.username, rating: user[`${gameInfo.format}_rating`] ?? 800 });
     setTimers({ white: timeControl, black: timeControl });
+
+    // ── FETCH FRESH RATING FROM SERVER ──────────────────────────────────────
+    // localStorage only updates on fresh login, so we always fetch current
+    // rating from the API to ensure the player bar shows the correct value.
+    const token = localStorage.getItem("token");
+
+    fetch("/api/users/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch user");
+        return r.json();
+      })
+      .then((data) => {
+        const freshRating = data[`${format}_rating`] ?? 800;
+
+        // Sync localStorage so it stays consistent after this point
+        const stored = JSON.parse(localStorage.getItem("user") || "{}");
+        stored[`${format}_rating`] = freshRating;
+        localStorage.setItem("user", JSON.stringify(stored));
+
+        preGameRatingRef.current = freshRating;
+        setMe({ username: data.username, rating: freshRating });
+      })
+      .catch(() => {
+        // Fallback to localStorage if the request fails (e.g. offline)
+        const fallbackRating = user[`${format}_rating`] ?? 800;
+        preGameRatingRef.current = fallbackRating;
+        setMe({ username: user.username, rating: fallbackRating });
+      });
+    // ────────────────────────────────────────────────────────────────────────
 
     const socket = connectSocket();
 
@@ -48,10 +82,9 @@ export default function Game() {
       chess.load(board);
       setLastMove({ from, to });
       setMoveHistory(mh || []);
-      forceUpdate(n => n + 1);
+      forceUpdate((n) => n + 1);
     });
 
-    // ✅ FIX 1: removed undefined `newRating` reference from here
     socket.on("gameOver", ({ status, winner }) => {
       setGameStatus("over");
       setResult({ winner, reason: status });
@@ -62,12 +95,26 @@ export default function Game() {
       setResult({ winner: colour, reason: "disconnect" });
     });
 
-    // ✅ FIX 2: added ratingUpdate listener — updates localStorage + popup
-    socket.on("ratingUpdate", ({ newRating, format }) => {
-      const stored = JSON.parse(localStorage.getItem("user") || "{}");
-      stored[`${format}_rating`] = newRating;
-      localStorage.setItem("user", JSON.stringify(stored));
-      setResult(prev => prev ? { ...prev, newRating } : prev);
+    // ratingUpdate → update the player bar AND the result popup atomically
+    socket.on("ratingUpdate", ({ newRating, format: fmt }) => {
+      // Update the player bar
+      setMe((prev) => {
+        const updated = { ...prev, rating: newRating };
+
+        // Keep localStorage in sync
+        const stored = JSON.parse(localStorage.getItem("user") || "{}");
+        stored[`${fmt}_rating`] = newRating;
+        localStorage.setItem("user", JSON.stringify(stored));
+
+        return updated;
+      });
+
+      // Attach newRating (and pre-game rating for delta) to the result popup
+      setResult((prev) =>
+        prev
+          ? { ...prev, newRating, oldRating: preGameRatingRef.current }
+          : prev
+      );
     });
 
     return () => {
@@ -75,7 +122,7 @@ export default function Game() {
       socket.off("moveMade");
       socket.off("gameOver");
       socket.off("opponentLeft");
-      socket.off("ratingUpdate"); // ✅ FIX 3: cleanup added
+      socket.off("ratingUpdate");
     };
   }, []);
 
@@ -94,10 +141,12 @@ export default function Game() {
     const socket = connectSocket();
     socket.emit("resign", { gameId });
     setGameStatus("over");
-    setResult({ winner: playerColour === "white" ? "black" : "white", reason: "resign" });
+    setResult({
+      winner: playerColour === "white" ? "black" : "white",
+      reason: "resign",
+    });
   };
 
-  // ✅ FIX 4: removed broken API fetch — localStorage already updated by ratingUpdate socket
   const handleBackToLobby = () => navigate("/home");
 
   const pairedMoves = [];
@@ -107,6 +156,12 @@ export default function Game() {
 
   const opponentColour = playerColour === "white" ? "black" : "white";
 
+  // Rating delta for the popup (only when ratingUpdate has arrived)
+  const ratingDelta =
+    result?.newRating != null && result?.oldRating != null
+      ? result.newRating - result.oldRating
+      : null;
+
   return (
     <div style={styles.root}>
 
@@ -115,7 +170,11 @@ export default function Game() {
         <div style={styles.overlay}>
           <div style={styles.popup}>
             <div style={styles.popupIcon}>
-              {result.winner === playerColour ? "🏆" : result.winner === "draw" ? "🤝" : "💀"}
+              {result.winner === playerColour
+                ? "🏆"
+                : result.winner === "draw"
+                ? "🤝"
+                : "💀"}
             </div>
             <h2 style={styles.popupTitle}>
               {result.winner === "draw"
@@ -132,12 +191,25 @@ export default function Game() {
               {result.reason === "stalemate"  && "By stalemate"}
               {result.reason === "timeout"    && "On time"}
             </p>
-            {/* ✅ FIX 5: new rating shown correctly outside <p> tag */}
-            {result.newRating && (
-              <p style={{ color: "#a07840", fontSize: "0.95rem", fontWeight: 600, margin: 0 }}>
-                New Rating: {result.newRating}
-              </p>
+
+            {/* New rating + delta — only shown after ratingUpdate arrives */}
+            {result.newRating != null && (
+              <div style={styles.ratingRow}>
+                <span style={styles.ratingLabel}>New Rating:</span>
+                <span style={styles.ratingValue}>{result.newRating}</span>
+                {ratingDelta !== null && (
+                  <span
+                    style={{
+                      ...styles.ratingDelta,
+                      color: ratingDelta >= 0 ? "#4caf50" : "#e53935",
+                    }}
+                  >
+                    ({ratingDelta >= 0 ? "+" : ""}{ratingDelta})
+                  </span>
+                )}
+              </div>
             )}
+
             <button onClick={handleBackToLobby} style={styles.popupBtn}>
               Back to Home
             </button>
@@ -160,11 +232,15 @@ export default function Game() {
               <div style={styles.playerName}>{opponent.username ?? "Opponent"}</div>
               <div style={styles.playerRating}>Rating: {opponent.rating ?? 800}</div>
             </div>
-            <div style={{
-              ...styles.timerBox,
-              ...(gameStatus === "playing" && chess.turn() === (opponentColour === "white" ? "w" : "b")
-                ? styles.timerActive : {})
-            }}>
+            <div
+              style={{
+                ...styles.timerBox,
+                ...(gameStatus === "playing" &&
+                chess.turn() === (opponentColour === "white" ? "w" : "b")
+                  ? styles.timerActive
+                  : {}),
+              }}
+            >
               {formatTime(timers[opponentColour])}
             </div>
           </div>
@@ -185,13 +261,18 @@ export default function Game() {
             </span>
             <div style={{ flex: 1 }}>
               <div style={styles.playerName}>{me.username ?? user.username ?? "You"}</div>
+              {/* me.rating is always fresh — set from API on mount, updated by ratingUpdate */}
               <div style={styles.playerRating}>Rating: {me.rating ?? 800}</div>
             </div>
-            <div style={{
-              ...styles.timerBox,
-              ...(gameStatus === "playing" && chess.turn() === (playerColour === "white" ? "w" : "b")
-                ? styles.timerActive : {})
-            }}>
+            <div
+              style={{
+                ...styles.timerBox,
+                ...(gameStatus === "playing" &&
+                chess.turn() === (playerColour === "white" ? "w" : "b")
+                  ? styles.timerActive
+                  : {}),
+              }}
+            >
               {formatTime(timers[playerColour])}
             </div>
           </div>
@@ -232,30 +313,34 @@ export default function Game() {
 }
 
 const styles = {
-  root:        { minHeight:"100vh", background:"#f5f0e8", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans', sans-serif", padding:"24px" },
-  layout:      { display:"flex", gap:"24px", alignItems:"flex-start" },
-  boardCol:    { display:"flex", flexDirection:"column", gap:"10px" },
-  playerBar:   { display:"flex", alignItems:"center", gap:"10px", background:"rgba(255,252,245,0.95)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"6px", padding:"10px 16px" },
-  playerIcon:  { fontSize:"1.6rem" },
-  playerName:  { fontWeight:600, color:"#2c1f08", fontSize:"0.95rem" },
-  playerRating:{ fontSize:"0.78rem", color:"#9a7f52" },
-  timerBox:    { background:"rgba(160,120,64,0.08)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"4px", padding:"8px 14px", fontFamily:"'Playfair Display', serif", fontSize:"1.3rem", fontWeight:700, color:"#2c1f08", minWidth:"72px", textAlign:"center" },
-  timerActive: { background:"rgba(160,120,64,0.18)", border:"1px solid #a07840", color:"#a07840" },
-  sideCol:     { width:"220px" },
-  sideCard:    { background:"rgba(255,252,245,0.95)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"6px", padding:"16px", display:"flex", flexDirection:"column", gap:"12px", minHeight:"400px" },
-  sideTitle:   { fontFamily:"'Playfair Display', serif", fontSize:"1.1rem", color:"#2c1f08", margin:0 },
-  moveList:    { flex:1, overflowY:"auto", maxHeight:"360px", display:"flex", flexDirection:"column", gap:"4px" },
-  noMoves:     { color:"#c4b08a", fontSize:"0.85rem", textAlign:"center", marginTop:"16px" },
-  moveRow:     { display:"grid", gridTemplateColumns:"24px 1fr 1fr", gap:"4px", fontSize:"0.88rem", padding:"3px 4px", borderRadius:"3px" },
-  moveNum:     { color:"#9a7f52", fontWeight:500 },
-  moveWhite:   { color:"#2c1f08", fontWeight:500 },
-  moveBlack:   { color:"#2c1f08" },
-  resignBtn:   { width:"100%", padding:"10px", background:"transparent", border:"1px solid rgba(180,60,60,0.4)", borderRadius:"4px", color:"#c84040", fontSize:"0.9rem", cursor:"pointer", fontWeight:500 },
-  lobbyBtn:    { width:"100%", padding:"10px", background:"linear-gradient(135deg, #c9a96e 0%, #a07840 100%)", border:"none", borderRadius:"4px", color:"#1a0f00", fontSize:"0.9rem", cursor:"pointer", fontWeight:600 },
-  overlay:     { position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 },
-  popup:       { background:"rgba(255,252,245,0.98)", border:"1px solid rgba(180,140,70,0.3)", borderRadius:"8px", padding:"40px", textAlign:"center", minWidth:"280px", display:"flex", flexDirection:"column", alignItems:"center", gap:"12px" },
-  popupIcon:   { fontSize:"3rem" },
-  popupTitle:  { fontFamily:"'Playfair Display', serif", fontSize:"1.8rem", color:"#2c1f08", margin:0 },
-  popupReason: { color:"#9a7f52", fontSize:"0.9rem", margin:0 },
-  popupBtn:    { marginTop:"8px", padding:"12px 32px", background:"linear-gradient(135deg, #c9a96e 0%, #a07840 100%)", border:"none", borderRadius:"4px", color:"#1a0f00", fontSize:"0.95rem", fontWeight:600, cursor:"pointer" },
+  root:         { minHeight:"100vh", background:"#f5f0e8", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans', sans-serif", padding:"24px" },
+  layout:       { display:"flex", gap:"24px", alignItems:"flex-start" },
+  boardCol:     { display:"flex", flexDirection:"column", gap:"10px" },
+  playerBar:    { display:"flex", alignItems:"center", gap:"10px", background:"rgba(255,252,245,0.95)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"6px", padding:"10px 16px" },
+  playerIcon:   { fontSize:"1.6rem" },
+  playerName:   { fontWeight:600, color:"#2c1f08", fontSize:"0.95rem" },
+  playerRating: { fontSize:"0.78rem", color:"#9a7f52" },
+  timerBox:     { background:"rgba(160,120,64,0.08)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"4px", padding:"8px 14px", fontFamily:"'Playfair Display', serif", fontSize:"1.3rem", fontWeight:700, color:"#2c1f08", minWidth:"72px", textAlign:"center" },
+  timerActive:  { background:"rgba(160,120,64,0.18)", border:"1px solid #a07840", color:"#a07840" },
+  sideCol:      { width:"220px" },
+  sideCard:     { background:"rgba(255,252,245,0.95)", border:"1px solid rgba(180,140,70,0.2)", borderRadius:"6px", padding:"16px", display:"flex", flexDirection:"column", gap:"12px", minHeight:"400px" },
+  sideTitle:    { fontFamily:"'Playfair Display', serif", fontSize:"1.1rem", color:"#2c1f08", margin:0 },
+  moveList:     { flex:1, overflowY:"auto", maxHeight:"360px", display:"flex", flexDirection:"column", gap:"4px" },
+  noMoves:      { color:"#c4b08a", fontSize:"0.85rem", textAlign:"center", marginTop:"16px" },
+  moveRow:      { display:"grid", gridTemplateColumns:"24px 1fr 1fr", gap:"4px", fontSize:"0.88rem", padding:"3px 4px", borderRadius:"3px" },
+  moveNum:      { color:"#9a7f52", fontWeight:500 },
+  moveWhite:    { color:"#2c1f08", fontWeight:500 },
+  moveBlack:    { color:"#2c1f08" },
+  resignBtn:    { width:"100%", padding:"10px", background:"transparent", border:"1px solid rgba(180,60,60,0.4)", borderRadius:"4px", color:"#c84040", fontSize:"0.9rem", cursor:"pointer", fontWeight:500 },
+  lobbyBtn:     { width:"100%", padding:"10px", background:"linear-gradient(135deg, #c9a96e 0%, #a07840 100%)", border:"none", borderRadius:"4px", color:"#1a0f00", fontSize:"0.9rem", cursor:"pointer", fontWeight:600 },
+  overlay:      { position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 },
+  popup:        { background:"rgba(255,252,245,0.98)", border:"1px solid rgba(180,140,70,0.3)", borderRadius:"8px", padding:"40px", textAlign:"center", minWidth:"280px", display:"flex", flexDirection:"column", alignItems:"center", gap:"12px" },
+  popupIcon:    { fontSize:"3rem" },
+  popupTitle:   { fontFamily:"'Playfair Display', serif", fontSize:"1.8rem", color:"#2c1f08", margin:0 },
+  popupReason:  { color:"#9a7f52", fontSize:"0.9rem", margin:0 },
+  ratingRow:    { display:"flex", alignItems:"center", gap:"6px" },
+  ratingLabel:  { color:"#9a7f52", fontSize:"0.9rem" },
+  ratingValue:  { color:"#a07840", fontSize:"0.95rem", fontWeight:700 },
+  ratingDelta:  { fontSize:"0.88rem", fontWeight:600 },
+  popupBtn:     { marginTop:"8px", padding:"12px 32px", background:"linear-gradient(135deg, #c9a96e 0%, #a07840 100%)", border:"none", borderRadius:"4px", color:"#1a0f00", fontSize:"0.95rem", fontWeight:600, cursor:"pointer" },
 };
