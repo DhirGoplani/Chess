@@ -15,7 +15,6 @@ class MatchmakingQueue {
     this.MAX_WAIT        = 30000; // after 30 s, match anyone
   }
 
-  // playerInfo = { socketId, userId, username, rating, format, timeControl }
   addPlayer(playerInfo) {
     const { socketId, format } = playerInfo;
     const queue = this.queues[format];
@@ -41,7 +40,7 @@ class MatchmakingQueue {
       ? Infinity
       : this.INITIAL_RANGE + extraRange;
 
-    // Prefer same timeControl; after MAX_WAIT accept any
+
     const opponent = queue.find(p => {
       if (p.socketId === socketId) return false;
       const ratingOk      = Math.abs(p.rating - player.rating) <= range;
@@ -53,7 +52,6 @@ class MatchmakingQueue {
 
     if (!opponent) return null;
 
-    // Remove both from queue
     this.queues[format] = queue.filter(
       p => p.socketId !== socketId && p.socketId !== opponent.socketId
     );
@@ -63,12 +61,11 @@ class MatchmakingQueue {
       ? [player, opponent]
       : [opponent, player];
 
-    // Use the waiting player's timeControl (both must match, or MAX_WAIT hit)
+
     const timeControl = player.timeControl;
     const gameId      = uuidv4();
 
-    // Create game in GameManager (async — fire and forget here,
-    // startTimer is called after gameStart is emitted in _emitMatchFound)
+
     GameManager.createGame(gameId, white, black, timeControl).catch(err =>
       console.error(`[Matchmaking] createGame failed for ${gameId}:`, err.message)
     );
@@ -76,10 +73,10 @@ class MatchmakingQueue {
     return { gameId, format, timeControl, players: { white, black } };
   }
 
-  // Called on a tick interval to retry unmatched players with expanded range
+
   tick(io) {
     for (const format of ['bullet', 'blitz', 'rapid']) {
-      // snapshot so mutations inside findMatch don't affect iteration
+
       const queue = [...this.queues[format]];
       for (const player of queue) {
         const match = this.findMatch(player.socketId, format);

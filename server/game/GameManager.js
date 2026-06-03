@@ -7,9 +7,6 @@ class GameManager {
     this.playerGameMap = new Map(); // socketId → gameId
   }
 
-  // ─────────────────────────────────────────────
-  //  CREATE
-  // ─────────────────────────────────────────────
   async createGame(gameId, whitePlayer, blackPlayer, timeMs) {
     const game = new ChessGame(
       gameId,
@@ -45,9 +42,7 @@ class GameManager {
     return game;
   }
 
-  // ─────────────────────────────────────────────
-  //  START TIMER
-  // ─────────────────────────────────────────────
+
   startTimer(gameId, io) {
     const game = this.games.get(gameId);
     if (!game) {
@@ -80,9 +75,6 @@ class GameManager {
     console.log(`[GameManager] Timer started for game ${gameId}`);
   }
 
-  // ─────────────────────────────────────────────
-  //  MAKE MOVE
-  // ─────────────────────────────────────────────
   makeMove(gameId, socketId, from, to, promotion = 'q') {
     const game = this.games.get(gameId);
     if (!game) return { success: false, message: 'Game not found' };
@@ -108,7 +100,7 @@ class GameManager {
       return;
     }
 
-    // Snapshot BEFORE any async call — deleteGame may run concurrently
+   
     const whiteSocketId  = game.whitePlayer.socketId;
     const blackSocketId  = game.blackPlayer.socketId;
     const whiteUserId    = game.whitePlayer.userId;
@@ -120,7 +112,7 @@ class GameManager {
     game.stopTimer();
 
     try {
-      // 1. Persist result to DB
+
       await sql`
         UPDATE games
         SET status    = 'finished',
@@ -140,8 +132,6 @@ class GameManager {
           result
         );
 
-      // 3. Emit the new rating to each player via their own socketId.
-      //    This works even after the game room is torn down.
       if (io) {
         console.log(`[ratingUpdate] → white socket ${whiteSocketId} : ${newWhiteRating}`);
         console.log(`[ratingUpdate] → black socket ${blackSocketId} : ${newBlackRating}`);
@@ -162,12 +152,7 @@ class GameManager {
     }
   }
 
-  // ─────────────────────────────────────────────
-  //  ELO
-  //  FIX: read ratings fresh from DB (not from JWT/memory which are stale).
-  //  FIX: use explicit column names per format instead of dynamic sql column
-  //  interpolation which breaks with postgres.js tagged templates.
-  // ─────────────────────────────────────────────
+
   async _updateRatings(game, winnerId, result) {
     const whiteUserId = game.whitePlayer.userId;
     const blackUserId = game.blackPlayer.userId;
@@ -229,9 +214,7 @@ class GameManager {
     return { newWhiteRating, newBlackRating };
   }
 
-  // ─────────────────────────────────────────────
-  //  LOOKUPS
-  // ─────────────────────────────────────────────
+
   getGame(gameId) {
     return this.games.get(gameId) ?? null;
   }
@@ -241,11 +224,7 @@ class GameManager {
     return gameId ? (this.games.get(gameId) ?? null) : null;
   }
 
-  // ─────────────────────────────────────────────
-  //  CLEANUP
-  //  FIX: use whitePlayer/blackPlayer socketIds (not game.players.white/black
-  //  which is the old shape and may be undefined).
-  // ─────────────────────────────────────────────
+
   deleteGame(gameId) {
     const game = this.games.get(gameId);
     if (!game) return;

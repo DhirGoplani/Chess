@@ -4,7 +4,7 @@ import MatchmakingQueue from '../matchmaking/MatchmakingQueue.js';
 
 const socketHandler = (io) => {
 
-  // ─── Auth middleware ───────────────────────────────────────────────────────
+  // Auth middleware
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('No token provided'));
@@ -23,16 +23,16 @@ const socketHandler = (io) => {
     }
   });
 
-  // ─── Matchmaking tick ──────────────────────────────────────────────────────
+  //  Matchmaking tick 
   setInterval(() => {
     MatchmakingQueue.tick(io);
   }, 5000);
 
-  // ─── Connection ───────────────────────────────────────────────────────────
+  // Connection
   io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id} | User: ${socket.user.username}`);
 
-    // ── Find match ────────────────────────────────────────────────────────
+    // ── Find match 
     socket.on('findMatch', ({ format, timeControl }) => {
       if (!['bullet', 'blitz', 'rapid'].includes(format)) {
         socket.emit('error', { message: 'Invalid format' });
@@ -61,13 +61,13 @@ const socketHandler = (io) => {
       }
     });
 
-    // ── Cancel search ─────────────────────────────────────────────────────
+    // ── Cancel search
     socket.on('cancelSearch', () => {
       MatchmakingQueue.removePlayer(socket.id);
       console.log(`[Matchmaking] ${socket.user.username} cancelled search`);
     });
 
-    // ── Make move ─────────────────────────────────────────────────────────
+    // ── Make move
     socket.on('makeMove', ({ gameId, from, to, promotion }) => {
       const game = GameManager.getGame(gameId);
       if (!game) {
