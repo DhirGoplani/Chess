@@ -7,47 +7,41 @@ import Piece from "./Piece";
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"]; // top → bottom
 
-// Map chess.js piece type+color to our Piece props
-// chess.js: { type: 'p'|'n'|'b'|'r'|'q'|'k', color: 'w'|'b' }
 const TYPE_MAP = { p: "P", n: "N", b: "B", r: "R", q: "Q", k: "K" };
 
 export default function Board({
-  chess,               // Chess instance (from useChessGame)
-  playerColour,        // "white" | "black"
-  onMove,              // (from, to, promotion?) → called when player makes a move
-  lastMove,            // { from, to } | null
-  engineThinking,      // bool — disables interaction while engine is thinking
+  chess,
+  playerColour,
+  onMove,
+  lastMove,
+  engineThinking,
+  size,           // optional px size — if omitted, defaults to 8 × 4rem = 512px
 }) {
-  const [selected, setSelected]   = useState(null);   // "e2" | null
-  const [legalDests, setLegalDests] = useState([]);   // ["e3", "e4", ...]
+  const [selected,   setSelected]   = useState(null);
+  const [legalDests, setLegalDests] = useState([]);
 
-  const board = chess.board(); // 8×8 array of { type, color } | null
+  const board = chess.board();
 
-  // Which square index is the king in check?
+  // Square size: if a numeric `size` prop is passed use it, otherwise fall back to 4rem (64px)
+  const sqPx = size ? Math.floor(size / 8) : 64;
+
   const checkSquare = (() => {
     if (!chess.isCheck()) return null;
-    const turn = chess.turn(); // "w" | "b"
-    for (let r = 0; r < 8; r++) {
+    const turn = chess.turn();
+    for (let r = 0; r < 8; r++)
       for (let c = 0; c < 8; c++) {
         const p = board[r][c];
-        if (p && p.type === "k" && p.color === turn) {
-          return FILES[c] + RANKS[r]; // e.g. "e1"
-        }
+        if (p && p.type === "k" && p.color === turn)
+          return FILES[c] + RANKS[r];
       }
-    }
     return null;
   })();
 
   const handleSquareClick = useCallback((square) => {
     if (engineThinking) return;
 
-    // It's not the player's turn
-    const turnColour = chess.turn() === "w" ? "white" : "black";
-    // if (turnColour !== playerColour) return;
-
     const piece = chess.get(square);
 
-    // Nothing selected yet
     if (!selected) {
       if (!piece || (piece.color === "w") !== (playerColour === "white")) return;
       const moves = chess.moves({ square, verbose: true });
@@ -56,14 +50,12 @@ export default function Board({
       return;
     }
 
-    // Clicking the already-selected square → deselect
     if (selected === square) {
       setSelected(null);
       setLegalDests([]);
       return;
     }
 
-    // Clicking another own piece → switch selection
     if (piece && (piece.color === "w") === (playerColour === "white")) {
       const moves = chess.moves({ square, verbose: true });
       setSelected(square);
@@ -71,9 +63,7 @@ export default function Board({
       return;
     }
 
-    // Attempting a move
     if (legalDests.includes(square)) {
-      // Check for pawn promotion
       const movingPiece = chess.get(selected);
       const isPromotion =
         movingPiece?.type === "p" &&
@@ -82,66 +72,36 @@ export default function Board({
 
       setSelected(null);
       setLegalDests([]);
-      onMove(selected, square, isPromotion ? "q" : undefined); // auto-promote to queen for now
+      onMove(selected, square, isPromotion ? "q" : undefined);
       return;
     }
 
-    // Clicked an empty/enemy square that's not a legal dest → deselect
     setSelected(null);
     setLegalDests([]);
   }, [selected, legalDests, chess, playerColour, engineThinking, onMove]);
-// const handleSquareClick = useCallback((square) => {
-//     if (engineThinking) return;
 
-//     const piece = chess.get(square);
-
-//     if (!selected) {
-//       if (!piece) return;
-//       const moves = chess.moves({ square, verbose: true });
-//       if (moves.length === 0) return;
-//       setSelected(square);
-//       setLegalDests(moves.map((m) => m.to));
-//       return;
-//     }
-
-//     if (selected === square) {
-//       setSelected(null);
-//       setLegalDests([]);
-//       return;
-//     }
-
-//     if (piece && piece.color === chess.get(selected)?.color) {
-//       const moves = chess.moves({ square, verbose: true });
-//       setSelected(square);
-//       setLegalDests(moves.map((m) => m.to));
-//       return;
-//     }
-
-//     if (legalDests.includes(square)) {
-//       const movingPiece = chess.get(selected);
-//       const isPromotion =
-//         movingPiece?.type === "p" &&
-//         ((chess.turn() === "w" && square[1] === "8") ||
-//          (chess.turn() === "b" && square[1] === "1"));
-
-//       setSelected(null);
-//       setLegalDests([]);
-//       onMove(selected, square, isPromotion ? "q" : undefined);
-//       return;
-//     }
-
-//     setSelected(null);
-//     setLegalDests([]);
-//   }, [selected, legalDests, chess, engineThinking, onMove]);
-  // Flip board so player always faces up
   const displayRanks = playerColour === "black" ? [...RANKS].reverse() : RANKS;
   const displayFiles = playerColour === "black" ? [...FILES].reverse() : FILES;
 
   return (
-    <div className="inline-block rounded-sm overflow-hidden"
-         style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3)" }}>
-      <div className="grid"
-           style={{ gridTemplateColumns: "repeat(8, 4rem)", gridTemplateRows: "repeat(8, 4rem)" }}>
+    <div
+      style={{
+        display: "inline-block",
+        borderRadius: "4px",
+        overflow: "hidden",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3)",
+        width: `${sqPx * 8}px`,
+        height: `${sqPx * 8}px`,
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(8, ${sqPx}px)`,
+          gridTemplateRows:    `repeat(8, ${sqPx}px)`,
+        }}
+      >
         {displayRanks.map((rank, ri) =>
           displayFiles.map((file, fi) => {
             const square   = file + rank;
@@ -168,12 +128,14 @@ export default function Board({
                 file={file}
                 showRank={fi === 0}
                 showFile={ri === 7}
+                size={sqPx}
                 onClick={() => handleSquareClick(square)}
               >
                 {piece && (
                   <Piece
                     type={TYPE_MAP[piece.type]}
                     color={piece.color === "w" ? "white" : "black"}
+                    size={sqPx}
                   />
                 )}
               </Square>

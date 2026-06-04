@@ -7,10 +7,7 @@ const API = (import.meta.env.VITE_API_URL ?? "http://localhost:3000") + "/api";
 
 function authHeaders() {
   const token = localStorage.getItem("token");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  return { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 }
 
 function applyMove(chess, move) {
@@ -18,61 +15,73 @@ function applyMove(chess, move) {
 }
 
 function resultLabel(reason, winner, playerColour) {
-  if (reason === "resigned") return { headline: "You Resigned", sub: "Better luck next time." };
+  if (reason === "resigned") return { headline: "You Resigned", sub: "Better luck next time.", icon: "🏳️" };
   if (winner === "draw") {
     const sub = {
-      stalemate:   "No legal moves — it's a draw.",
-      repetition:  "Threefold repetition — it's a draw.",
+      stalemate: "No legal moves — it's a draw.",
+      repetition: "Threefold repetition — it's a draw.",
       insufficient: "Insufficient material — it's a draw.",
       "fifty-move": "Fifty-move rule — it's a draw.",
     }[reason] ?? "It's a draw.";
-    return { headline: "Draw", sub };
+    return { headline: "Draw", sub, icon: "🤝" };
   }
   if (reason === "checkmate") {
-    if (winner === "player") return { headline: "Checkmate!", sub: "You beat the engine! 🎉" };
-    return { headline: "Checkmate!", sub: "The engine wins. Try again?" };
+    if (winner === "player") return { headline: "You Win!", sub: "You beat the engine! 🎉", icon: "🏆" };
+    return { headline: "You Lose", sub: "The engine wins. Try again?", icon: "💀" };
   }
-  return { headline: "Game Over", sub: reason };
+  return { headline: "Game Over", sub: reason, icon: "♟" };
+}
+
+function useWindowWidth() {
+  const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
+  useEffect(() => {
+    const h = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return width;
 }
 
 export default function PvcGame() {
-  const { gameId } = useParams();
-  const { state } = useLocation();
-  const navigate = useNavigate();
+  const { gameId }    = useParams();
+  const { state }     = useLocation();
+  const navigate      = useNavigate();
+  const width         = useWindowWidth();
+  const isMobile      = width < 640;
 
-  const chessRef = useRef(new Chess());
+  const chessRef      = useRef(new Chess());
   const [, forceUpdate] = useState(0);
-  const redraw = useCallback(() => forceUpdate((n) => n + 1), []);
+  const redraw        = useCallback(() => forceUpdate(n => n + 1), []);
 
-  const [playerColour, setPlayerColour] = useState(state?.playerColour ?? "white");
-  const [engineThinking, setEngineThinking] = useState(false);
-  const [lastMove, setLastMove] = useState(null);
-  const [gameOver, setGameOver] = useState(null);
-  const [error, setError] = useState(null);
+  const [playerColour,    setPlayerColour]    = useState(state?.playerColour ?? "white");
+  const [engineThinking,  setEngineThinking]  = useState(false);
+  const [lastMove,        setLastMove]        = useState(null);
+  const [gameOver,        setGameOver]        = useState(null);
+  const [error,           setError]           = useState(null);
   const [capturedByPlayer, setCapturedByPlayer] = useState([]);
   const [capturedByEngine, setCapturedByEngine] = useState([]);
-  const [moveCount, setMoveCount] = useState(0);
+  const [moveCount,       setMoveCount]       = useState(0);
 
- const engineFirstMoveApplied = useRef(false);
+  const engineFirstMoveApplied = useRef(false);
 
-useEffect(() => {
-  if (!state || engineFirstMoveApplied.current) return;
-  engineFirstMoveApplied.current = true;
-  setPlayerColour(state.playerColour);
-  if (state.engineFirstMove) {
-    const chess = chessRef.current;
-    applyMove(chess, state.engineFirstMove);
-    setLastMove({ from: state.engineFirstMove.from, to: state.engineFirstMove.to });
-    setMoveCount(1);
-    redraw();
-  }
-}, []);
+  useEffect(() => {
+    if (!state || engineFirstMoveApplied.current) return;
+    engineFirstMoveApplied.current = true;
+    setPlayerColour(state.playerColour);
+    if (state.engineFirstMove) {
+      const chess = chessRef.current;
+      applyMove(chess, state.engineFirstMove);
+      setLastMove({ from: state.engineFirstMove.from, to: state.engineFirstMove.to });
+      setMoveCount(1);
+      redraw();
+    }
+  }, []);
 
   function syncCaptures(chess) {
     const starting = { p: 8, n: 2, b: 2, r: 2, q: 1 };
     const order = ["p", "n", "b", "r", "q"];
     const onBoard = { w: {}, b: {} };
-    chess.board().flat().forEach((sq) => {
+    chess.board().flat().forEach(sq => {
       if (!sq) return;
       onBoard[sq.color][sq.type] = (onBoard[sq.color][sq.type] ?? 0) + 1;
     });
@@ -84,8 +93,7 @@ useEffect(() => {
       }
     const engineSide = playerColour === "white" ? "b" : "w";
     const playerSide  = playerColour === "white" ? "w" : "b";
-    const expand = (obj) =>
-      Object.entries(obj).flatMap(([t, n]) => Array(n).fill(t));
+    const expand = obj => Object.entries(obj).flatMap(([t, n]) => Array(n).fill(t));
     setCapturedByPlayer(expand(counts[engineSide]));
     setCapturedByEngine(expand(counts[playerSide]));
   }
@@ -95,19 +103,15 @@ useEffect(() => {
     const move = chess.move({ from, to, promotion: promotion ?? undefined });
     if (!move) return;
     setLastMove({ from, to });
-    setMoveCount((n) => n + 1);
+    setMoveCount(n => n + 1);
     syncCaptures(chess);
     redraw();
-    if (chess.isGameOver()) {
-      setGameOver(buildLocalGameOver(chess, "player"));
-      return;
-    }
+    if (chess.isGameOver()) { setGameOver(buildLocalGameOver(chess, "player")); return; }
     setEngineThinking(true);
     setError(null);
     try {
       const res = await fetch(`${API}/pvc/move`, {
-        method: "POST",
-        headers: authHeaders(),
+        method: "POST", headers: authHeaders(),
         body: JSON.stringify({ gameId, from, to, promotion: promotion ?? null }),
       });
       const data = await res.json();
@@ -115,12 +119,11 @@ useEffect(() => {
       if (data.engineMove) {
         applyMove(chess, data.engineMove);
         setLastMove({ from: data.engineMove.from, to: data.engineMove.to });
-        setMoveCount((n) => n + 1);
+        setMoveCount(n => n + 1);
         syncCaptures(chess);
         redraw();
       }
-      if (data.gameOver)
-        setGameOver(resultLabel(data.reason, data.winner, playerColour));
+      if (data.gameOver) setGameOver(resultLabel(data.reason, data.winner, playerColour));
     } catch (err) {
       setError("Network error — " + err.message);
     } finally {
@@ -137,189 +140,196 @@ useEffect(() => {
   async function handleResign() {
     if (!window.confirm("Resign this game?")) return;
     try {
-      await fetch(`${API}/pvc/resign`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ gameId }),
-      });
+      await fetch(`${API}/pvc/resign`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ gameId }) });
     } catch (_) {}
     setGameOver(resultLabel("resigned", "engine", playerColour));
   }
 
   const chess = chessRef.current;
-  const isPlayerTurn =
-    !gameOver &&
-    !engineThinking &&
-    ((chess.turn() === "w" && playerColour === "white") ||
-      (chess.turn() === "b" && playerColour === "black"));
+  const isPlayerTurn = !gameOver && !engineThinking &&
+    ((chess.turn() === "w" && playerColour === "white") || (chess.turn() === "b" && playerColour === "black"));
 
   const pieceGlyph = { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛" };
 
-  // Status dot colour
-  const dotClass = chess.isCheck() && !gameOver
-    ? "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]"
-    : isPlayerTurn
-    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-    : "bg-[#c4a87a]";
-
-  const statusText = gameOver
-    ? gameOver.headline
-    : chess.isCheck()
-    ? "Check!"
-    : isPlayerTurn
-    ? "Your turn"
-    : engineThinking
-    ? "Engine thinking…"
+  const statusText  = gameOver ? gameOver.headline
+    : chess.isCheck() ? "Check!"
+    : isPlayerTurn   ? "Your turn"
+    : engineThinking ? "Thinking…"
     : "Waiting…";
 
-  // Shared action button styles
-  const btnBase =
-    "px-4 py-2 rounded-sm text-[0.82rem] font-medium tracking-wide transition-all duration-150 cursor-pointer border";
-  const btnPrimary =
-    "bg-gradient-to-br from-[#c9a96e] to-[#a07840] text-[#1a0f00] border-transparent hover:opacity-90 hover:-translate-y-px shadow-sm";
-  const btnSecondary =
-    "bg-transparent text-[#7a6340] border-[#ddd0b8] hover:border-[#c4a87a] hover:bg-[#fdf8f0]";
+  const statusColor = gameOver ? "#c4a35a"
+    : chess.isCheck() ? "#e05555"
+    : isPlayerTurn   ? "#81b64c"
+    : "#8a7055";
 
+  // ── MOBILE LAYOUT ──────────────────────────────────────────────────────────
+  if (isMobile) {
+    return (
+      <div style={m.root}>
+        {/* Top bar */}
+        <div style={m.topBar}>
+          <div style={m.topBarLeft}>
+            <span style={m.logoIcon}>♞</span>
+            <span style={m.logoText}>vs Engine</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ ...m.statusBadge, color: statusColor, borderColor: `${statusColor}44`, background: `${statusColor}12` }}>
+              {statusText}
+            </span>
+            {!gameOver && (
+              <button onClick={handleResign} style={m.resignBtnSmall}>Resign</button>
+            )}
+          </div>
+        </div>
+
+        {/* Opponent bar */}
+        <div style={m.playerBar}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={m.engineAvatar}>⚙</div>
+            <div>
+              <div style={m.playerName}>Engine</div>
+              <div style={m.playerSide}>{state?.engineColour === "white" ? "White" : "Black"}</div>
+            </div>
+          </div>
+          <div style={m.capturedRow}>
+            {capturedByEngine.map((t, i) => <span key={i} style={m.capturedPiece}>{pieceGlyph[t]}</span>)}
+          </div>
+          {engineThinking && <span style={m.thinkingBadge}>thinking…</span>}
+        </div>
+
+        {/* Board */}
+        <div style={m.boardWrap}>
+          <div style={{ width: "100%", maxWidth: `${Math.min(width, 480)}px`, aspectRatio: "1 / 1" }}>
+            <Board
+              chess={chess}
+              playerColour={playerColour}
+              onMove={handleMove}
+              lastMove={lastMove}
+              engineThinking={engineThinking || !isPlayerTurn}
+              size={Math.floor(Math.min(width, 480) / 8) * 8}
+            />
+          </div>
+        </div>
+
+        {/* Player bar */}
+        <div style={m.playerBar}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={m.playerAvatar}>♟</div>
+            <div>
+              <div style={m.playerName}>You</div>
+              <div style={m.playerSide}>{playerColour === "white" ? "White" : "Black"}</div>
+            </div>
+          </div>
+          <div style={m.capturedRow}>
+            {capturedByPlayer.map((t, i) => <span key={i} style={m.capturedPiece}>{pieceGlyph[t]}</span>)}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#8a7055" }}>Move {Math.ceil(moveCount / 2)}</div>
+        </div>
+
+        {error && <div style={m.errorBar}>{error}</div>}
+
+        {/* Game over overlay */}
+        {gameOver && (
+          <div style={m.overlay}>
+            <div style={m.popup}>
+              <div style={{ fontSize: "3rem" }}>{gameOver.icon}</div>
+              <h2 style={{ ...m.popupTitle, color: gameOver.headline === "You Win!" ? "#81b64c" : gameOver.headline === "Draw" ? "#c4a35a" : "#e05555" }}>
+                {gameOver.headline}
+              </h2>
+              <p style={m.popupSub}>{gameOver.sub}</p>
+              <button onClick={() => navigate("/pvc")} style={m.popupBtnPrimary}>Play Again</button>
+              <button onClick={() => navigate("/home")} style={m.popupBtnSecondary}>Home</button>
+            </div>
+          </div>
+        )}
+
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap');
+          @keyframes popIn { from { opacity:0; transform:scale(0.92) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+          @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        `}</style>
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT ─────────────────────────────────────────────────────────
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500&display=swap');
-        @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
-        @keyframes fadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes spin    { to { transform: rotate(360deg); } }
-        .pvc-fadein  { animation: fadeIn  0.3s ease both; }
-        .pvc-fadeup  { animation: fadeUp  0.4s ease both; }
-        .pvc-spin    { display:inline-block; animation: spin 1s linear infinite; }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes popIn  { from { opacity:0; transform:scale(0.9) translateY(16px); } to { opacity:1; transform:scale(1) translateY(0); } }
       `}</style>
 
-      <div
-        className="flex h-screen w-screen overflow-hidden bg-[#f5f0e8] font-['DM_Sans',sans-serif]"
-        style={{ fontFamily: "'DM Sans', sans-serif" }}
-      >
-        {/* ── Sidebar ── */}
-        <aside className="flex flex-col w-64 shrink-0 h-full bg-[rgba(255,252,245,0.96)] border-r border-[rgba(180,140,70,0.18)] shadow-[2px_0_16px_rgba(120,80,20,0.07)] px-5 py-6 gap-4">
-
-          {/* Engine player */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#2c1f08] flex items-center justify-center text-[#d4b87a] text-lg shrink-0 shadow-md">
-                ⚙
+      <div style={d.root}>
+        {/* SIDEBAR */}
+        <aside style={d.sidebar}>
+          {/* Engine */}
+          <div style={d.playerSection}>
+            <div style={d.playerRow}>
+              <div style={d.engineAvatar}>⚙</div>
+              <div style={{ flex: 1 }}>
+                <div style={d.playerName}>Engine</div>
+                <div style={d.playerSide}>{state?.engineColour === "white" ? "White" : "Black"}</div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[0.87rem] font-medium text-[#2c1f08] leading-tight">Engine</div>
-                <div className="text-[0.7rem] text-[#9a7f52] font-light">
-                  {state?.engineColour === "white" ? "White" : "Black"}
-                </div>
-              </div>
-              {engineThinking && (
-                <span className="text-[0.65rem] font-semibold tracking-wide text-[#a07840] bg-[rgba(160,120,64,0.1)] border border-[rgba(160,120,64,0.25)] rounded-[2px] px-2 py-0.5 uppercase shrink-0 pvc-fadein">
-                  thinking…
-                </span>
-              )}
+              {engineThinking && <span style={d.thinkingBadge}>thinking…</span>}
             </div>
-
-            {/* Pieces captured by engine */}
-            <div className="flex flex-wrap gap-0.5 min-h-[1.2rem]">
-              {capturedByEngine.map((t, i) => (
-                <span key={i} className="text-base text-[#2c1f08] leading-none">{pieceGlyph[t]}</span>
-              ))}
+            <div style={d.capturedRow}>
+              {capturedByEngine.map((t, i) => <span key={i} style={d.capturedPiece}>{pieceGlyph[t]}</span>)}
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-[rgba(180,140,70,0.15)]" />
+          <div style={d.divider} />
 
           {/* Game meta */}
-          <div className="flex flex-col gap-2.5">
+          <div style={d.metaSection}>
             {[
-              { label: "Move", value: Math.ceil(moveCount / 2) },
-              { label: "Turn", value: gameOver ? "—" : chess.turn() === "w" ? "White" : "Black" },
+              { label: "Move",  value: Math.ceil(moveCount / 2) },
+              { label: "Turn",  value: gameOver ? "—" : chess.turn() === "w" ? "White" : "Black" },
             ].map(({ label, value }) => (
-              <div key={label} className="flex justify-between items-center">
-                <span className="text-[0.7rem] font-medium text-[#9a7f52] uppercase tracking-[0.08em]">{label}</span>
-                <span className="text-[0.87rem] font-semibold text-[#2c1f08]">{value}</span>
+              <div key={label} style={d.metaRow}>
+                <span style={d.metaLabel}>{label}</span>
+                <span style={d.metaValue}>{value}</span>
               </div>
             ))}
-
-            {/* Status row */}
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`w-2 h-2 rounded-full shrink-0 transition-colors duration-300 ${dotClass}`} />
-              <span className="text-[0.8rem] text-[#5a4520] font-medium">{statusText}</span>
+            <div style={d.statusRow}>
+              <div style={{ ...d.statusDot, background: statusColor, boxShadow: `0 0 6px ${statusColor}88` }} />
+              <span style={{ ...d.statusText, color: statusColor }}>{statusText}</span>
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-[rgba(180,140,70,0.15)]" />
+          <div style={d.divider} />
 
-          {/* Bottom section */}
-          <div className="flex flex-col gap-3 mt-auto">
-            {/* Pieces captured by player */}
-            <div className="flex flex-wrap gap-0.5 min-h-[1.2rem]">
-              {capturedByPlayer.map((t, i) => (
-                <span key={i} className="text-base text-[#2c1f08] leading-none">{pieceGlyph[t]}</span>
-              ))}
+          {/* Bottom */}
+          <div style={d.bottomSection}>
+            <div style={d.capturedRow}>
+              {capturedByPlayer.map((t, i) => <span key={i} style={d.capturedPiece}>{pieceGlyph[t]}</span>)}
             </div>
-
-            {/* You */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#d4b87a] flex items-center justify-center text-[#2c1f08] text-lg shrink-0 shadow-md">
-                ♟
-              </div>
+            <div style={d.playerRow}>
+              <div style={d.playerAvatar}>♟</div>
               <div>
-                <div className="text-[0.87rem] font-medium text-[#2c1f08] leading-tight">You</div>
-                <div className="text-[0.7rem] text-[#9a7f52] font-light">
-                  {playerColour === "white" ? "White" : "Black"}
-                </div>
+                <div style={d.playerName}>You</div>
+                <div style={d.playerSide}>{playerColour === "white" ? "White" : "Black"}</div>
               </div>
             </div>
 
-            {/* Error */}
-            {error && (
-              <p className="text-[0.78rem] text-red-500 bg-red-50 border border-red-200 rounded-sm px-3 py-2 pvc-fadein">
-                {error}
-              </p>
-            )}
+            {error && <div style={d.errorBox}>{error}</div>}
 
-            {/* Actions */}
             {!gameOver ? (
-              <button
-                onClick={handleResign}
-                className={`${btnBase} ${btnSecondary} w-full justify-center`}
-              >
-                Resign
-              </button>
+              <button onClick={handleResign} style={d.resignBtn}>Resign</button>
             ) : (
-              <div className="flex flex-col gap-2 pvc-fadein">
-                <button
-                  onClick={() => navigate("/pvc")}
-                  className={`${btnBase} ${btnPrimary} w-full`}
-                >
-                  New Game
-                </button>
-                <button
-                  onClick={() => navigate("/home")}
-                  className={`${btnBase} ${btnSecondary} w-full`}
-                >
-                  Home
-                </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <button onClick={() => navigate("/pvc")} style={d.primaryBtn}>New Game</button>
+                <button onClick={() => navigate("/home")} style={d.secondaryBtn}>Home</button>
               </div>
             )}
           </div>
         </aside>
 
-        {/* ── Board ── */}
-        <main className="flex-1 flex items-center justify-center bg-[#ede8df] relative overflow-hidden">
-          {/* Subtle board-pattern bg */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 opacity-[0.06] pointer-events-none"
-            style={{
-              backgroundImage:
-                "repeating-conic-gradient(#8b6914 0% 25%, transparent 0% 50%)",
-              backgroundSize: "48px 48px",
-            }}
-          />
-
+        {/* BOARD AREA */}
+        <main style={d.boardArea}>
+          <div style={d.boardPatternBg} aria-hidden="true" />
           <Board
             chess={chess}
             playerColour={playerColour}
@@ -328,34 +338,19 @@ useEffect(() => {
             engineThinking={engineThinking || !isPlayerTurn}
           />
 
-          {/* Game-over overlay */}
+          {/* Game over overlay */}
           {gameOver && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[rgba(30,18,6,0.55)] backdrop-blur-[3px] pvc-fadein">
-              <div className="bg-[rgba(255,252,245,0.97)] border border-[rgba(180,140,70,0.25)] rounded-sm px-10 py-9 text-center shadow-[0_12px_48px_rgba(60,30,0,0.25)] max-w-xs w-full mx-4 pvc-fadeup">
-                <div className="text-5xl mb-3">
-                  {gameOver.headline.includes("You beat")
-                    ? "🏆"
-                    : gameOver.headline === "Stalemate"
-                    ? "🤝"
-                    : "💀"}
-                </div>
-                <h2 className="font-['Playfair_Display',serif] text-[1.6rem] font-bold text-[#2c1f08] mb-1 tracking-tight">
+            <div style={d.overlay}>
+              <div style={d.popup}>
+                <div style={{ ...d.popupGlow, background: gameOver.headline === "You Win!" ? "radial-gradient(circle, rgba(129,182,76,0.2) 0%, transparent 70%)" : gameOver.headline === "Draw" ? "radial-gradient(circle, rgba(196,163,90,0.2) 0%, transparent 70%)" : "radial-gradient(circle, rgba(200,60,60,0.15) 0%, transparent 70%)" }} />
+                <div style={{ fontSize: "3.5rem" }}>{gameOver.icon}</div>
+                <h2 style={{ ...d.popupTitle, color: gameOver.headline === "You Win!" ? "#81b64c" : gameOver.headline === "Draw" ? "#c4a35a" : "#e05555" }}>
                   {gameOver.headline}
                 </h2>
-                <p className="text-[0.85rem] text-[#9a7f52] mb-6 font-light">{gameOver.sub}</p>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={() => navigate("/pvc")}
-                    className={`${btnBase} ${btnPrimary}`}
-                  >
-                    Play Again
-                  </button>
-                  <button
-                    onClick={() => navigate("/home")}
-                    className={`${btnBase} ${btnSecondary}`}
-                  >
-                    Home
-                  </button>
+                <p style={d.popupSub}>{gameOver.sub}</p>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button onClick={() => navigate("/pvc")} style={d.primaryBtn}>Play Again</button>
+                  <button onClick={() => navigate("/home")} style={d.secondaryBtn}>Home</button>
                 </div>
               </div>
             </div>
@@ -365,3 +360,65 @@ useEffect(() => {
     </>
   );
 }
+
+// ── MOBILE STYLES ────────────────────────────────────────────────────────────
+const m = {
+  root: { minHeight: "100vh", background: "#1a0e07", display: "flex", flexDirection: "column", fontFamily: "'DM Sans',sans-serif" },
+  topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "rgba(26,14,7,0.9)", borderBottom: "1px solid rgba(196,163,90,0.12)", position: "sticky", top: 0, zIndex: 10 },
+  topBarLeft: { display: "flex", alignItems: "center", gap: "8px" },
+  logoIcon: { fontSize: "1.3rem", color: "#81b64c" },
+  logoText: { fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "#f0e6d3" },
+  statusBadge: { fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", padding: "4px 10px", borderRadius: "20px", border: "1px solid" },
+  resignBtnSmall: { padding: "5px 12px", background: "transparent", border: "1px solid rgba(200,60,60,0.35)", borderRadius: "4px", color: "#c05050", fontSize: "0.75rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" },
+  playerBar: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "rgba(44,26,14,0.9)", borderBottom: "1px solid rgba(196,163,90,0.1)" },
+  engineAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "#2c1a0e", border: "1px solid rgba(196,163,90,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", color: "#c4a35a" },
+  playerAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "rgba(196,163,90,0.2)", border: "1px solid rgba(196,163,90,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", color: "#c4a35a" },
+  playerName: { fontSize: "0.82rem", fontWeight: 600, color: "#f0e6d3" },
+  playerSide: { fontSize: "0.65rem", color: "#8a7055" },
+  capturedRow: { display: "flex", flexWrap: "wrap", gap: "2px" },
+  capturedPiece: { fontSize: "0.9rem", color: "#c4a882" },
+  thinkingBadge: { fontSize: "0.62rem", fontWeight: 600, color: "#e8a838", background: "rgba(232,168,56,0.12)", border: "1px solid rgba(232,168,56,0.3)", borderRadius: "10px", padding: "2px 8px" },
+  boardWrap: { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a0e07", overflow: "hidden" },
+  errorBar: { padding: "8px 16px", background: "rgba(200,60,60,0.15)", borderTop: "1px solid rgba(200,60,60,0.3)", color: "#e08080", fontSize: "0.78rem" },
+  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, animation: "fadeIn 0.2s ease both" },
+  popup: { background: "#2c1a0e", border: "1px solid rgba(196,163,90,0.2)", borderRadius: "10px", padding: "36px 28px", textAlign: "center", width: "calc(100% - 48px)", maxWidth: "320px", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", animation: "popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both" },
+  popupTitle: { fontFamily: "'Playfair Display',serif", fontSize: "1.8rem", fontWeight: 700, margin: 0 },
+  popupSub: { color: "#8a7055", fontSize: "0.85rem", margin: 0 },
+  popupBtnPrimary: { width: "100%", padding: "12px", background: "#81b64c", border: "none", borderRadius: "6px", color: "#0d1f05", fontSize: "0.92rem", fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" },
+  popupBtnSecondary: { width: "100%", padding: "11px", background: "transparent", border: "1px solid rgba(196,163,90,0.3)", borderRadius: "6px", color: "#8a7055", fontSize: "0.88rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" },
+};
+
+// ── DESKTOP STYLES ───────────────────────────────────────────────────────────
+const d = {
+  root: { height: "100vh", width: "100vw", display: "flex", overflow: "hidden", background: "#1a0e07", fontFamily: "'DM Sans',sans-serif" },
+  sidebar: { width: "240px", flexShrink: 0, height: "100%", background: "rgba(44,26,14,0.95)", borderRight: "1px solid rgba(196,163,90,0.12)", padding: "20px 18px", display: "flex", flexDirection: "column", gap: "0" },
+  playerSection: { display: "flex", flexDirection: "column", gap: "8px", paddingBottom: "16px" },
+  playerRow: { display: "flex", alignItems: "center", gap: "10px" },
+  engineAvatar: { width: "36px", height: "36px", borderRadius: "50%", background: "#2c1a0e", border: "1px solid rgba(196,163,90,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", color: "#c4a35a", flexShrink: 0 },
+  playerAvatar: { width: "36px", height: "36px", borderRadius: "50%", background: "rgba(196,163,90,0.15)", border: "1px solid rgba(196,163,90,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", color: "#c4a35a", flexShrink: 0 },
+  playerName: { fontSize: "0.85rem", fontWeight: 600, color: "#f0e6d3", lineHeight: 1 },
+  playerSide: { fontSize: "0.68rem", color: "#8a7055", marginTop: "2px" },
+  thinkingBadge: { fontSize: "0.62rem", fontWeight: 600, color: "#e8a838", background: "rgba(232,168,56,0.12)", border: "1px solid rgba(232,168,56,0.3)", borderRadius: "10px", padding: "2px 8px", marginLeft: "auto", whiteSpace: "nowrap" },
+  capturedRow: { display: "flex", flexWrap: "wrap", gap: "2px", minHeight: "20px", paddingLeft: "46px" },
+  capturedPiece: { fontSize: "0.95rem", color: "#c4a882" },
+  divider: { height: "1px", background: "rgba(196,163,90,0.1)", margin: "0 -18px" },
+  metaSection: { padding: "16px 0", display: "flex", flexDirection: "column", gap: "10px" },
+  metaRow: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  metaLabel: { fontSize: "0.68rem", fontWeight: 600, color: "#8a7055", textTransform: "uppercase", letterSpacing: "0.08em" },
+  metaValue: { fontSize: "0.85rem", fontWeight: 600, color: "#f0e6d3" },
+  statusRow: { display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" },
+  statusDot: { width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, transition: "all 0.3s" },
+  statusText: { fontSize: "0.82rem", fontWeight: 500, transition: "color 0.3s" },
+  bottomSection: { marginTop: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingTop: "16px" },
+  errorBox: { padding: "8px 10px", background: "rgba(200,60,60,0.12)", border: "1px solid rgba(200,60,60,0.25)", borderRadius: "4px", color: "#e08080", fontSize: "0.75rem" },
+  resignBtn: { width: "100%", padding: "10px", background: "transparent", border: "1px solid rgba(200,60,60,0.3)", borderRadius: "4px", color: "#c05050", fontSize: "0.85rem", cursor: "pointer", fontWeight: 500, fontFamily: "'DM Sans',sans-serif" },
+  primaryBtn: { flex: 1, padding: "10px 16px", background: "rgba(129,182,76,0.15)", border: "1px solid rgba(129,182,76,0.4)", borderRadius: "4px", color: "#81b64c", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" },
+  secondaryBtn: { flex: 1, padding: "10px 16px", background: "transparent", border: "1px solid rgba(196,163,90,0.2)", borderRadius: "4px", color: "#8a7055", fontSize: "0.85rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" },
+  boardArea: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#1a0e07", position: "relative", overflow: "hidden" },
+  boardPatternBg: { position: "absolute", inset: 0, opacity: 0.04, pointerEvents: "none", backgroundImage: "repeating-conic-gradient(#b58863 0% 25%, transparent 0% 50%)", backgroundSize: "48px 48px" },
+  overlay: { position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, animation: "fadeIn 0.2s ease both" },
+  popup: { position: "relative", background: "#2c1a0e", border: "1px solid rgba(196,163,90,0.2)", borderRadius: "10px", padding: "44px 40px", textAlign: "center", minWidth: "300px", display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", boxShadow: "0 0 0 1px rgba(196,163,90,0.08), 0 32px 80px rgba(0,0,0,0.7)", animation: "popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both", overflow: "hidden" },
+  popupGlow: { position: "absolute", inset: 0, pointerEvents: "none" },
+  popupTitle: { fontFamily: "'Playfair Display',serif", fontSize: "2rem", fontWeight: 700, margin: 0 },
+  popupSub: { color: "#8a7055", fontSize: "0.88rem", margin: 0 },
+};
