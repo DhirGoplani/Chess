@@ -2,37 +2,27 @@ import { useState } from "react";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
-export default function Login() {
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword]     = useState("");
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
-  const isEmail = identifier.includes("@");
+export default function ForgotPassword() {
+  const [email, setEmail]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+  const [sent, setSent]       = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/forgotpassword`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(
-          isEmail
-            ? { email: identifier, password }
-            : { username: identifier, password }
-        ),
+        body: JSON.stringify({ email }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Login failed");
+        setError(data.message || "Something went wrong.");
       } else {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        window.location.href = "/lobby";
+        setSent(true);
       }
     } catch {
       setError("Network error. Please try again.");
@@ -43,7 +33,6 @@ export default function Login() {
 
   return (
     <div className="root">
-      {/* Animated chessboard background */}
       <div className="board-bg" aria-hidden="true">
         {SQUARES.map((i) => {
           const row = Math.floor(i / 8);
@@ -54,7 +43,6 @@ export default function Login() {
       </div>
       <div className="vignette" aria-hidden="true" />
 
-      {/* Logo top */}
       <div className="logo" aria-label="Chess app logo">
         <span className="logo-icon">♞</span>
         <span className="logo-text">ChessMate</span>
@@ -62,82 +50,66 @@ export default function Login() {
 
       <div className="card">
         <div className="card-header">
-          <div className="crown" aria-hidden="true">♔</div>
-          <h1 className="title">Welcome Back</h1>
-          <p className="subtitle">Sign in to continue your game</p>
+          <div className="crown" aria-hidden="true">♜</div>
+          <h1 className="title">Forgot Password</h1>
+          <p className="subtitle">
+            {sent
+              ? "Check your inbox"
+              : "Enter your email and we'll send a reset link"}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="form" noValidate>
-          <div className="field-group">
-            <label htmlFor="identifier" className="label">Email or Username</label>
-            <div className="input-wrap">
-              <span className="input-icon">{isEmail ? "✉" : "♟"}</span>
-              <input
-                id="identifier"
-                type={isEmail ? "email" : "text"}
-                autoComplete={isEmail ? "email" : "username"}
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="player@gmail.com or username"
-                className="input"
-                required
-                disabled={loading}
-              />
+        {sent ? (
+          <div className="success-box" role="status">
+            <span className="success-icon">✓</span>
+            <div>
+              <p className="success-title">Reset link sent</p>
+              <p className="success-body">
+                If an account exists for <strong>{email}</strong>, you'll receive a reset link shortly. It expires in 15 minutes.
+              </p>
             </div>
-            {identifier.length > 0 && (
-              <span className="field-hint">Signing in as {isEmail ? "email" : "username"}</span>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="form" noValidate>
+            <div className="field-group">
+              <label htmlFor="email" className="label">Email Address</label>
+              <div className="input-wrap">
+                <span className="input-icon">✉</span>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="player@gmail.com"
+                  className="input"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="error" role="alert">
+                <span>⚠</span> {error}
+              </div>
             )}
-          </div>
 
-          <div className="field-group">
-            <div className="label-row">
-              <label htmlFor="password" className="label">Password</label>
-              <a href="/forgot-password" className="forgot-link">Forgot password?</a>
-            </div>
-            <div className="input-wrap">
-              <span className="input-icon">⚿</span>
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="input"
-                required
-                disabled={loading}
-              />
-              <button
-                type="button"
-                className="toggle-pw"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? "✕" : "👁"}
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <div className="error" role="alert">
-              <span>⚠</span> {error}
-            </div>
-          )}
-
-          <button type="submit" className="btn-submit" disabled={loading}>
-            {loading
-              ? <span className="spinner" aria-label="Loading">◌</span>
-              : "Sign In"
-            }
-          </button>
-        </form>
+            <button type="submit" className="btn-submit" disabled={loading || !email}>
+              {loading
+                ? <span className="spinner" aria-label="Loading">◌</span>
+                : "Send Reset Link"
+              }
+            </button>
+          </form>
+        )}
 
         <div className="divider"><span>or</span></div>
 
         <div className="card-footer">
           <p className="footer-text">
-            Don't have an account?{" "}
-            <a href="/register" className="link">Create one</a>
+            Remembered it?{" "}
+            <a href="/" className="link">Back to Sign In</a>
           </p>
         </div>
       </div>
@@ -147,7 +119,6 @@ export default function Login() {
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* ── TOKENS ─────────────────────────────────────── */
         :root {
           --bg:           #1a0e07;
           --bg2:          #2c1a0e;
@@ -166,9 +137,10 @@ export default function Login() {
           --error-bg:     rgba(200,60,60,0.15);
           --error-border: rgba(200,60,60,0.4);
           --error-text:   #f08080;
+          --success-bg:   rgba(129,182,76,0.12);
+          --success-border: rgba(129,182,76,0.35);
         }
 
-        /* ── ROOT ───────────────────────────────────────── */
         .root {
           min-height: 100vh;
           display: flex;
@@ -182,7 +154,6 @@ export default function Login() {
           padding: 24px 16px;
         }
 
-        /* ── CHESSBOARD BG ──────────────────────────────── */
         .board-bg {
           position: absolute;
           inset: 0;
@@ -204,7 +175,6 @@ export default function Login() {
           pointer-events: none;
         }
 
-        /* ── LOGO ───────────────────────────────────────── */
         .logo {
           position: relative;
           z-index: 10;
@@ -226,7 +196,6 @@ export default function Login() {
           letter-spacing: 0.02em;
         }
 
-        /* ── CARD ───────────────────────────────────────── */
         .card {
           position: relative;
           z-index: 10;
@@ -247,9 +216,7 @@ export default function Login() {
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── CARD HEADER ────────────────────────────────── */
         .card-header { text-align: center; margin-bottom: 32px; }
-
         .crown {
           font-size: 2.4rem;
           display: block;
@@ -261,7 +228,6 @@ export default function Login() {
           0%,100% { filter: drop-shadow(0 2px 6px rgba(196,163,90,0.2)); }
           50%      { filter: drop-shadow(0 4px 20px rgba(196,163,90,0.6)); }
         }
-
         .title {
           font-family: 'Playfair Display', serif;
           font-size: 1.75rem;
@@ -277,17 +243,8 @@ export default function Login() {
           letter-spacing: 0.03em;
         }
 
-        /* ── FORM ───────────────────────────────────────── */
         .form { display: flex; flex-direction: column; gap: 18px; }
         .field-group { display: flex; flex-direction: column; gap: 6px; }
-
-        /* Label row with inline forgot link */
-        .label-row {
-          display: flex;
-          align-items: baseline;
-          justify-content: space-between;
-        }
-
         .label {
           font-size: 0.72rem;
           font-weight: 600;
@@ -295,18 +252,7 @@ export default function Login() {
           letter-spacing: 0.1em;
           text-transform: uppercase;
         }
-
-        .forgot-link {
-          font-size: 0.72rem;
-          color: var(--text-faint);
-          text-decoration: none;
-          letter-spacing: 0.02em;
-          transition: color 0.2s;
-        }
-        .forgot-link:hover { color: var(--accent); }
-
         .input-wrap { position: relative; display: flex; align-items: center; }
-
         .input-icon {
           position: absolute;
           left: 13px;
@@ -315,13 +261,12 @@ export default function Login() {
           pointer-events: none;
           transition: color 0.2s;
         }
-
         .input {
           width: 100%;
           background: var(--bg3);
           border: 1px solid var(--border);
           border-radius: 4px;
-          padding: 11px 42px 11px 40px;
+          padding: 11px 14px 11px 40px;
           color: var(--text);
           font-family: 'DM Sans', sans-serif;
           font-size: 0.92rem;
@@ -336,28 +281,6 @@ export default function Login() {
         .input-wrap:focus-within .input-icon { color: var(--accent); }
         .input:disabled { opacity: 0.45; cursor: not-allowed; }
 
-        .toggle-pw {
-          position: absolute;
-          right: 11px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 0.85rem;
-          color: var(--text-faint);
-          padding: 4px;
-          transition: color 0.2s;
-          line-height: 1;
-        }
-        .toggle-pw:hover { color: var(--text-muted); }
-
-        .field-hint {
-          font-size: 0.7rem;
-          color: var(--accent);
-          letter-spacing: 0.03em;
-          opacity: 0.85;
-        }
-
-        /* ── ERROR ──────────────────────────────────────── */
         .error {
           background: var(--error-bg);
           border: 1px solid var(--error-border);
@@ -370,7 +293,36 @@ export default function Login() {
           align-items: center;
         }
 
-        /* ── BUTTON ─────────────────────────────────────── */
+        /* Success state */
+        .success-box {
+          background: var(--success-bg);
+          border: 1px solid var(--success-border);
+          border-radius: 4px;
+          padding: 16px;
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+          margin-bottom: 4px;
+        }
+        .success-icon {
+          color: var(--accent);
+          font-size: 1.1rem;
+          margin-top: 1px;
+          flex-shrink: 0;
+        }
+        .success-title {
+          color: var(--accent);
+          font-size: 0.88rem;
+          font-weight: 600;
+          margin-bottom: 4px;
+        }
+        .success-body {
+          color: var(--text-muted);
+          font-size: 0.82rem;
+          line-height: 1.5;
+        }
+        .success-body strong { color: var(--text); font-weight: 500; }
+
         .btn-submit {
           width: 100%;
           padding: 13px;
@@ -401,7 +353,6 @@ export default function Login() {
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── DIVIDER ────────────────────────────────────── */
         .divider {
           display: flex;
           align-items: center;
@@ -411,15 +362,13 @@ export default function Login() {
           font-size: 0.75rem;
           letter-spacing: 0.08em;
         }
-        .divider::before,
-        .divider::after {
+        .divider::before, .divider::after {
           content: '';
           flex: 1;
           height: 1px;
           background: var(--border);
         }
 
-        /* ── FOOTER ─────────────────────────────────────── */
         .card-footer { margin-top: 18px; text-align: center; }
         .footer-text { font-size: 0.82rem; color: var(--text-faint); }
         .link {
@@ -430,7 +379,6 @@ export default function Login() {
         }
         .link:hover { color: #91cc58; }
 
-        /* ── RESPONSIVE ─────────────────────────────────── */
         @media (max-width: 480px) {
           .card { padding: 32px 22px 26px; }
           .title { font-size: 1.5rem; }
