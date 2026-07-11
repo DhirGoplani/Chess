@@ -8,6 +8,8 @@ using namespace std;
 using BB = uint64_t;
 
 BB StringToBB(string square);
+int squareToIndex(string square);
+string indexToSquare(int idx);
 
 class Direction {
 public:
@@ -75,5 +77,6 @@ public:
     // New functions
     Move makeMove(string from, string to, int promotion = -1);
     void unmakeMove(Move& move);
-    bool isInCheck(int colour);  
+    bool isInCheck(int colour);
+    bool isSquareAttacked(int idx, int colour); // colour = side that would stand there
 };

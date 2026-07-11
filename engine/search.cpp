@@ -46,24 +46,35 @@ static vector<SearchMove> generateLegalMoves(Board& board, int colour) {
                 case Board::QUEEN:  targets = board.QueenMoves (fromSq, colour); break;
                 case Board::KING: {
                     targets = board.KingMoves(fromSq, colour);
-                    // Castling
+                    // Castling — a king may not castle out of, through, or into check.
                     BB ap = 0;
                     for (int i = 0; i < 2; i++)
                         for (int j = 0; j < 6; j++)
                             ap |= board.pieces[i][j];
-                    if (colour == Board::WHITE) {
+
+                    bool inCheckNow = board.isInCheck(colour);
+
+                    if (!inCheckNow && colour == Board::WHITE) {
                         if (board.castlingRights.WhiteKingSide
-                            && !(ap & (StringToBB("f1") | StringToBB("g1"))))
+                            && !(ap & (StringToBB("f1") | StringToBB("g1")))
+                            && !board.isSquareAttacked(squareToIndex("f1"), colour)
+                            && !board.isSquareAttacked(squareToIndex("g1"), colour))
                             targets |= StringToBB("g1");
                         if (board.castlingRights.WhiteQueenSide
-                            && !(ap & (StringToBB("b1") | StringToBB("c1") | StringToBB("d1"))))
+                            && !(ap & (StringToBB("b1") | StringToBB("c1") | StringToBB("d1")))
+                            && !board.isSquareAttacked(squareToIndex("d1"), colour)
+                            && !board.isSquareAttacked(squareToIndex("c1"), colour))
                             targets |= StringToBB("c1");
-                    } else {
+                    } else if (!inCheckNow) {
                         if (board.castlingRights.BlackKingSide
-                            && !(ap & (StringToBB("f8") | StringToBB("g8"))))
+                            && !(ap & (StringToBB("f8") | StringToBB("g8")))
+                            && !board.isSquareAttacked(squareToIndex("f8"), colour)
+                            && !board.isSquareAttacked(squareToIndex("g8"), colour))
                             targets |= StringToBB("g8");
                         if (board.castlingRights.BlackQueenSide
-                            && !(ap & (StringToBB("b8") | StringToBB("c8") | StringToBB("d8"))))
+                            && !(ap & (StringToBB("b8") | StringToBB("c8") | StringToBB("d8")))
+                            && !board.isSquareAttacked(squareToIndex("d8"), colour)
+                            && !board.isSquareAttacked(squareToIndex("c8"), colour))
                             targets |= StringToBB("c8");
                     }
                     break;
