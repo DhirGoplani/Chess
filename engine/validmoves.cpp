@@ -104,12 +104,12 @@ BB Board::BlackPawnMoves(string square){
     if(pawn&rank7) moves |= (singlepush>>8)&~ap;
     BB enemies = 0;
     for(int p=0;p<6;p++) enemies|=pieces[0][p];
-    moves |= ((pawn>>9)&~afile)&enemies;
-    moves |= ((pawn>>7)&~hfile)&enemies;
+    moves |= ((pawn>>9)&~hfile)&enemies;
+    moves |= ((pawn>>7)&~afile)&enemies;
     if(enPassantSquare!=""){
         BB ep = StringToBB(enPassantSquare);
-        moves |= ((pawn>>9)&~afile)&ep;
-        moves |= ((pawn>>7)&~hfile)&ep;
+        moves |= ((pawn>>9)&~hfile)&ep;
+        moves |= ((pawn>>7)&~afile)&ep;
     }
     return moves;
 }
