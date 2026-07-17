@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
+const USERNAME_REGEX = /^[a-z0-9_.]*$/;
 
 function getPasswordStrength(password) {
   if (!password) return { score: 0, label: "", color: "" };
@@ -22,12 +23,17 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
+  const [success, setSuccess]         = useState(false);
 
   const strength = getPasswordStrength(password);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!USERNAME_REGEX.test(username)) {
+      setError("Username can only contain lowercase letters, numbers, underscores, and periods");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
@@ -40,7 +46,12 @@ export default function Register() {
       if (!res.ok) {
         setError(data.message || "Registration failed");
       } else {
-        console.log("Registered:", data.user);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setSuccess(true);
+        setTimeout(() => {
+          window.location.href = "/home";
+        }, 1200);
       }
     } catch {
       setError("Network error. Please try again.");
@@ -105,7 +116,9 @@ export default function Register() {
                   type="text"
                   autoComplete="username"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) =>
+                    setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ""))
+                  }
                   placeholder="chesswizard99"
                   className="input"
                   required
@@ -117,6 +130,9 @@ export default function Register() {
                   {username.length < 3 ? "Too short" : `@${username}`}
                 </span>
               )}
+              <span className="field-hint" style={{ color: "#8a7055" }}>
+                lowercase letters, numbers, _ and . only
+              </span>
             </div>
           </div>
 
@@ -179,13 +195,19 @@ export default function Register() {
             )}
           </div>
 
+          {success && (
+            <div className="success" role="status">
+              <span>✓</span> Account created successfully! Redirecting…
+            </div>
+          )}
+
           {error && (
             <div className="error" role="alert">
               <span>⚠</span> {error}
             </div>
           )}
 
-          <button type="submit" className="btn-submit" disabled={loading}>
+          <button type="submit" className="btn-submit" disabled={loading || success}>
             {loading
               ? <span className="spinner" aria-label="Loading">◌</span>
               : "Create Account"
@@ -425,6 +447,18 @@ export default function Register() {
           border-radius: 4px;
           padding: 10px 14px;
           color: var(--error-text);
+          font-size: 0.83rem;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .success {
+          background: rgba(129,182,76,0.12);
+          border: 1px solid rgba(129,182,76,0.4);
+          border-radius: 4px;
+          padding: 10px 14px;
+          color: var(--accent);
           font-size: 0.83rem;
           display: flex;
           gap: 8px;

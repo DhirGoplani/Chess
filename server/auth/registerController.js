@@ -15,6 +15,9 @@ export const register = async (req, res) => {
     if(!name || !username || !email || !password){
       return res.status(400).json({ message: "All fields are required" });
     }
+    if(!/^[a-z0-9_.]+$/.test(username)){
+      return res.status(400).json({ message: "Username can only contain lowercase letters, numbers, underscores, and periods" });
+    }
     const existingUser = await sql`
       SELECT id FROM users
       WHERE email = ${email} OR username = ${username}

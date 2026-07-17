@@ -11,7 +11,7 @@ function authHeaders() {
 }
 
 function applyMove(chess, move) {
-  chess.move({ from: move.from, to: move.to, promotion: move.promotion ?? undefined });
+  return chess.move({ from: move.from, to: move.to, promotion: move.promotion ?? undefined });
 }
 
 function resultLabel(reason, winner, playerColour) {
@@ -50,6 +50,7 @@ export default function PvcGame() {
   const isMobile      = width < 640;
 
   const chessRef      = useRef(new Chess());
+  const moveListRef   = useRef(null);
   const [, forceUpdate] = useState(0);
   const redraw        = useCallback(() => forceUpdate(n => n + 1), []);
 
@@ -61,6 +62,7 @@ export default function PvcGame() {
   const [capturedByPlayer, setCapturedByPlayer] = useState([]);
   const [capturedByEngine, setCapturedByEngine] = useState([]);
   const [moveCount,       setMoveCount]       = useState(0);
+  const [moveHistory,     setMoveHistory]     = useState([]);
 
   const engineFirstMoveApplied = useRef(false);
 
@@ -70,12 +72,18 @@ export default function PvcGame() {
     setPlayerColour(state.playerColour);
     if (state.engineFirstMove) {
       const chess = chessRef.current;
-      applyMove(chess, state.engineFirstMove);
+      const mv = applyMove(chess, state.engineFirstMove);
       setLastMove({ from: state.engineFirstMove.from, to: state.engineFirstMove.to });
       setMoveCount(1);
+      if (mv) setMoveHistory([mv.san]);
       redraw();
     }
   }, []);
+
+  useEffect(() => {
+    if (moveListRef.current)
+      moveListRef.current.scrollTop = moveListRef.current.scrollHeight;
+  }, [moveHistory]);
 
   function syncCaptures(chess) {
     const starting = { p: 8, n: 2, b: 2, r: 2, q: 1 };
@@ -104,6 +112,7 @@ export default function PvcGame() {
     if (!move) return;
     setLastMove({ from, to });
     setMoveCount(n => n + 1);
+    setMoveHistory(h => [...h, move.san]);
     syncCaptures(chess);
     redraw();
     if (chess.isGameOver()) { setGameOver(buildLocalGameOver(chess, "player")); return; }
@@ -117,9 +126,10 @@ export default function PvcGame() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Server error"); return; }
       if (data.engineMove) {
-        applyMove(chess, data.engineMove);
+        const mv = applyMove(chess, data.engineMove);
         setLastMove({ from: data.engineMove.from, to: data.engineMove.to });
         setMoveCount(n => n + 1);
+        if (mv) setMoveHistory(h => [...h, mv.san]);
         syncCaptures(chess);
         redraw();
       }
@@ -151,6 +161,13 @@ export default function PvcGame() {
 
   const pieceGlyph = { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛" };
 
+  const pairedMoves = [];
+  for (let i = 0; i < moveHistory.length; i += 2)
+    pairedMoves.push([moveHistory[i], moveHistory[i + 1] ?? ""]);
+
+  const whiteName = playerColour === "white" ? "You" : "Computer";
+  const blackName = playerColour === "white" ? "Computer" : "You";
+
   const statusText  = gameOver ? gameOver.headline
     : chess.isCheck() ? "Check!"
     : isPlayerTurn   ? "Your turn"
@@ -170,7 +187,7 @@ export default function PvcGame() {
         <div style={m.topBar}>
           <div style={m.topBarLeft}>
             <span style={m.logoIcon}>♞</span>
-            <span style={m.logoText}>vs Engine</span>
+            <span style={m.logoText}>vs Computer</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ ...m.statusBadge, color: statusColor, borderColor: `${statusColor}44`, background: `${statusColor}12` }}>
@@ -187,7 +204,7 @@ export default function PvcGame() {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={m.engineAvatar}>⚙</div>
             <div>
-              <div style={m.playerName}>Engine</div>
+              <div style={m.playerName}>Computer</div>
               <div style={m.playerSide}>{state?.engineColour === "white" ? "White" : "Black"}</div>
             </div>
           </div>
@@ -224,6 +241,28 @@ export default function PvcGame() {
             {capturedByPlayer.map((t, i) => <span key={i} style={m.capturedPiece}>{pieceGlyph[t]}</span>)}
           </div>
           <div style={{ fontSize: "0.75rem", color: "#8a7055" }}>Move {Math.ceil(moveCount / 2)}</div>
+        </div>
+
+        {/* Move history (mobile) */}
+        <div style={m.movesPanel}>
+          <div style={m.movesPanelHeader}>
+            <span style={m.movesPanelTag}>
+              <span style={{ ...m.colorDotSmall, background: "#f0e6d3", border: "2px solid #8a7055" }} />
+              White · {whiteName}
+            </span>
+            <span style={m.movesPanelTag}>
+              <span style={{ ...m.colorDotSmall, background: "#2c1a0e", border: "2px solid #c4a35a" }} />
+              Black · {blackName}
+            </span>
+          </div>
+          <div style={m.movesPanelList}>
+            {pairedMoves.length === 0 && <span style={m.noMovesSmall}>No moves yet</span>}
+            {pairedMoves.map(([white, black], i) => (
+              <span key={i} style={m.movePillGroup}>
+                <span style={m.moveNumSmall}>{i + 1}.</span> {white} {black}
+              </span>
+            ))}
+          </div>
         </div>
 
         {error && <div style={m.errorBar}>{error}</div>}
@@ -270,7 +309,7 @@ export default function PvcGame() {
             <div style={d.playerRow}>
               <div style={d.engineAvatar}>⚙</div>
               <div style={{ flex: 1 }}>
-                <div style={d.playerName}>Engine</div>
+                <div style={d.playerName}>Computer</div>
                 <div style={d.playerSide}>{state?.engineColour === "white" ? "White" : "Black"}</div>
               </div>
               {engineThinking && <span style={d.thinkingBadge}>thinking…</span>}
@@ -356,6 +395,40 @@ export default function PvcGame() {
             </div>
           )}
         </main>
+
+        {/* MOVES SIDEBAR (right) */}
+        <aside style={d.movesSidebar}>
+          <div style={d.movesHeader}>
+            <div style={d.movesHeaderRow}>
+              <span style={{ ...d.colorDot, background: "#f0e6d3", border: "2px solid #8a7055" }} />
+              <span style={d.movesColorLabel}>White</span>
+              <span style={d.movesPlayerName}>{whiteName}</span>
+            </div>
+            <div style={d.movesHeaderRow}>
+              <span style={{ ...d.colorDot, background: "#2c1a0e", border: "2px solid #c4a35a" }} />
+              <span style={d.movesColorLabel}>Black</span>
+              <span style={d.movesPlayerName}>{blackName}</span>
+            </div>
+          </div>
+
+          <div style={d.movesTitleRow}>
+            <span>Move History</span>
+            <span style={d.movesCount}>{moveHistory.length}</span>
+          </div>
+
+          <div style={d.moveList} ref={moveListRef}>
+            {pairedMoves.length === 0 && (
+              <p style={d.noMoves}>Waiting for first move…</p>
+            )}
+            {pairedMoves.map(([white, black], i) => (
+              <div key={i} style={{ ...d.moveRow, background: i % 2 === 0 ? "rgba(0,0,0,0.15)" : "transparent" }}>
+                <span style={d.moveNum}>{i + 1}</span>
+                <span style={d.moveWhite}>{white}</span>
+                <span style={d.moveBlack}>{black}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
       </div>
     </>
   );
@@ -386,6 +459,16 @@ const m = {
   popupSub: { color: "#8a7055", fontSize: "0.85rem", margin: 0 },
   popupBtnPrimary: { width: "100%", padding: "12px", background: "#81b64c", border: "none", borderRadius: "6px", color: "#0d1f05", fontSize: "0.92rem", fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" },
   popupBtnSecondary: { width: "100%", padding: "11px", background: "transparent", border: "1px solid rgba(196,163,90,0.3)", borderRadius: "6px", color: "#8a7055", fontSize: "0.88rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" },
+
+  // MOVES PANEL (mobile)
+  movesPanel: { padding: "10px 16px", background: "rgba(26,14,7,0.6)", borderBottom: "1px solid rgba(196,163,90,0.1)" },
+  movesPanelHeader: { display: "flex", gap: "14px", marginBottom: "6px" },
+  movesPanelTag: { display: "flex", alignItems: "center", gap: "5px", fontSize: "0.68rem", color: "#8a7055", fontWeight: 600 },
+  colorDotSmall: { width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0 },
+  movesPanelList: { display: "flex", flexWrap: "wrap", gap: "4px 10px", maxHeight: "62px", overflowY: "auto" },
+  movePillGroup: { fontSize: "0.78rem", color: "#c4a882", whiteSpace: "nowrap" },
+  moveNumSmall: { color: "#4a2c18", fontWeight: 600 },
+  noMovesSmall: { fontSize: "0.78rem", color: "#4a2c18", fontStyle: "italic" },
 };
 
 // ── DESKTOP STYLES ───────────────────────────────────────────────────────────
@@ -421,4 +504,20 @@ const d = {
   popupGlow: { position: "absolute", inset: 0, pointerEvents: "none" },
   popupTitle: { fontFamily: "'Playfair Display',serif", fontSize: "2rem", fontWeight: 700, margin: 0 },
   popupSub: { color: "#8a7055", fontSize: "0.88rem", margin: 0 },
+
+  // MOVES SIDEBAR (right)
+  movesSidebar: { width: "230px", flexShrink: 0, height: "100%", background: "rgba(44,26,14,0.95)", borderLeft: "1px solid rgba(196,163,90,0.12)", padding: "20px 16px", display: "flex", flexDirection: "column", gap: "14px", overflow: "hidden" },
+  movesHeader: { display: "flex", flexDirection: "column", gap: "8px", paddingBottom: "14px", borderBottom: "1px solid rgba(196,163,90,0.1)" },
+  movesHeaderRow: { display: "flex", alignItems: "center", gap: "8px" },
+  colorDot: { width: "12px", height: "12px", borderRadius: "50%", flexShrink: 0 },
+  movesColorLabel: { fontSize: "0.68rem", fontWeight: 600, color: "#8a7055", textTransform: "uppercase", letterSpacing: "0.08em", width: "42px" },
+  movesPlayerName: { fontSize: "0.85rem", fontWeight: 600, color: "#f0e6d3" },
+  movesTitleRow: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.72rem", fontWeight: 600, color: "#8a7055", textTransform: "uppercase", letterSpacing: "0.1em" },
+  movesCount: { color: "rgba(138,112,85,0.5)", fontWeight: 400 },
+  moveList: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "2px", scrollbarWidth: "thin", scrollbarColor: "rgba(196,163,90,0.2) transparent" },
+  noMoves: { color: "#4a2c18", fontSize: "0.82rem", textAlign: "center", marginTop: "20px", fontStyle: "italic" },
+  moveRow: { display: "grid", gridTemplateColumns: "20px 1fr 1fr", gap: "4px", fontSize: "0.83rem", padding: "4px 6px", borderRadius: "3px" },
+  moveNum: { color: "#4a2c18", fontWeight: 600, fontSize: "0.7rem", paddingTop: "1px" },
+  moveWhite: { color: "#c4a882", fontWeight: 500 },
+  moveBlack: { color: "#8a7055" },
 };

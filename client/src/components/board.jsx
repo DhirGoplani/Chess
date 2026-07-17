@@ -8,6 +8,12 @@ const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"]; // top → bottom
 
 const TYPE_MAP = { p: "P", n: "N", b: "B", r: "R", q: "Q", k: "K" };
+const PROMOTION_CHOICES = [
+  { code: "q", label: "Queen" },
+  { code: "r", label: "Rook" },
+  { code: "b", label: "Bishop" },
+  { code: "n", label: "Knight" },
+];
 
 export default function Board({
   chess,
@@ -19,6 +25,7 @@ export default function Board({
 }) {
   const [selected,   setSelected]   = useState(null);
   const [legalDests, setLegalDests] = useState([]);
+  const [promotionPending, setPromotionPending] = useState(null); // { from, to, color }
 
   const board = chess.board();
 
@@ -70,9 +77,16 @@ export default function Board({
         ((playerColour === "white" && square[1] === "8") ||
          (playerColour === "black" && square[1] === "1"));
 
+      const from = selected;
       setSelected(null);
       setLegalDests([]);
-      onMove(selected, square, isPromotion ? "q" : undefined);
+
+      if (isPromotion) {
+        setPromotionPending({ from, to: square, color: movingPiece.color });
+        return;
+      }
+
+      onMove(from, square, undefined);
       return;
     }
 
@@ -80,12 +94,24 @@ export default function Board({
     setLegalDests([]);
   }, [selected, legalDests, chess, playerColour, engineThinking, onMove]);
 
+  const handlePromotionChoice = useCallback((pieceCode) => {
+    if (!promotionPending) return;
+    const { from, to } = promotionPending;
+    setPromotionPending(null);
+    onMove(from, to, pieceCode);
+  }, [promotionPending, onMove]);
+
+  const handlePromotionCancel = useCallback(() => {
+    setPromotionPending(null);
+  }, []);
+
   const displayRanks = playerColour === "black" ? [...RANKS].reverse() : RANKS;
   const displayFiles = playerColour === "black" ? [...FILES].reverse() : FILES;
 
   return (
     <div
       style={{
+        position: "relative",
         display: "inline-block",
         borderRadius: "4px",
         overflow: "hidden",
@@ -143,6 +169,78 @@ export default function Board({
           })
         )}
       </div>
+
+      {promotionPending && (
+        <div
+          onClick={handlePromotionCancel}
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(10,6,3,0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#2c1a0e",
+              border: "1px solid rgba(196,163,90,0.3)",
+              borderRadius: "8px",
+              padding: "16px",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "#8a7055",
+                marginBottom: "10px",
+              }}
+            >
+              Promote to
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {PROMOTION_CHOICES.map(({ code, label }) => (
+                <button
+                  key={code}
+                  onClick={() => handlePromotionChoice(code)}
+                  title={label}
+                  aria-label={label}
+                  style={{
+                    width: `${Math.max(sqPx, 56)}px`,
+                    height: `${Math.max(sqPx, 56)}px`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(196,163,90,0.08)",
+                    border: "1px solid rgba(196,163,90,0.25)",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    padding: 0,
+                    transition: "background 0.15s, border-color 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(129,182,76,0.18)"; e.currentTarget.style.borderColor = "rgba(129,182,76,0.5)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(196,163,90,0.08)"; e.currentTarget.style.borderColor = "rgba(196,163,90,0.25)"; }}
+                >
+                  <Piece
+                    type={TYPE_MAP[code]}
+                    color={promotionPending.color === "w" ? "white" : "black"}
+                    size={Math.max(sqPx, 56)}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

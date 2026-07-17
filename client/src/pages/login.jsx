@@ -32,7 +32,7 @@ export default function Login() {
       } else {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-        window.location.href = "/lobby";
+        window.location.href = "/home";
       }
     } catch {
       setError("Network error. Please try again.");
