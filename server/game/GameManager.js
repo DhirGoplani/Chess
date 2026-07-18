@@ -172,7 +172,7 @@ class GameManager {
     const expectedBlack = 1 - expectedWhite;
 
     let actualWhite, actualBlack;
-    if (result === 'draw') {
+    if (result === 'draw' || result === 'draw_agreement') {
       actualWhite = 0.5; actualBlack = 0.5;
     } else if (winnerId === whiteUserId) {
       actualWhite = 1;   actualBlack = 0;
@@ -180,7 +180,7 @@ class GameManager {
       actualWhite = 0;   actualBlack = 1;
     }
 
-    const K              = 32;
+    const K              = 10;
     const whiteChange    = Math.round(K * (actualWhite - expectedWhite));
     const blackChange    = Math.round(K * (actualBlack - expectedBlack));
     const newWhiteRating = whiteRating + whiteChange;

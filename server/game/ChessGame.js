@@ -20,6 +20,17 @@ class ChessGame {
     this.status      = 'playing';
     this.moveHistory = [];
 
+    // Draw offers
+    // drawOffer: colour ('white' | 'black') of the player with a pending
+    // offer, or null if none is pending right now.
+    this.drawOffer = null;
+    // drawOfferMoveIndex[colour]: moveHistory.length at the moment that
+    // colour's last offer was declined. A colour may only send a new offer
+    // once moveHistory.length has grown past this value, i.e. after another
+    // move has been made (by either player). Starts at -1 so an offer is
+    // always allowed before it has ever been used.
+    this.drawOfferMoveIndex = { white: -1, black: -1 };
+
     // Timer
     this.timers = {
       white: timeMs,
@@ -74,6 +85,9 @@ class ChessGame {
       this.moveHistory.push(move.san);
       this.switchTimer();  // switch timer after move
 
+      // Any move made (by either side) implicitly voids a pending draw offer
+      this.drawOffer = null;
+
       if (this.chess.isCheckmate())  this.status = 'checkmate';
       else if (this.chess.isDraw())  this.status = 'draw';
       else if (this.chess.isCheck()) this.status = 'check';
@@ -91,6 +105,37 @@ class ChessGame {
     } catch (err) {
       return { success: false, message: 'Invalid move' };
     }
+  }
+
+  // Can `colour` legally send a draw offer right now?
+  canOfferDraw(colour) {
+    if (this.status !== 'playing' && this.status !== 'check') return false;
+    if (this.drawOffer) return false; // an offer is already pending
+    return this.moveHistory.length > this.drawOfferMoveIndex[colour];
+  }
+
+  // Try to register a draw offer from `colour`. Returns true on success.
+  offerDraw(colour) {
+    if (!this.canOfferDraw(colour)) return false;
+    this.drawOffer = colour;
+    return true;
+  }
+
+  // Resolve the pending offer. Returns the offering colour, or null if
+  // there was no pending offer to respond to.
+  respondDraw(accept) {
+    const offerColour = this.drawOffer;
+    if (!offerColour) return null;
+
+    if (accept) {
+      this.status = 'draw';
+    } else {
+      // Offering side must wait for another move before offering again
+      this.drawOfferMoveIndex[offerColour] = this.moveHistory.length;
+    }
+
+    this.drawOffer = null;
+    return offerColour;
   }
 
   getPlayerColor(socketId) {

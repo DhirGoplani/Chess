@@ -1,6 +1,7 @@
 import jwt         from 'jsonwebtoken';
 import GameManager  from '../game/GameManager.js';
 import MatchmakingQueue from '../matchmaking/MatchmakingQueue.js';
+import { sql } from '../utils/connectDB.js';
 
 const socketHandler = (io) => {
 
@@ -33,13 +34,25 @@ const socketHandler = (io) => {
     console.log(`Player connected: ${socket.id} | User: ${socket.user.username}`);
 
     // ── Find match 
-    socket.on('findMatch', ({ format, timeControl }) => {
+    socket.on('findMatch', async ({ format, timeControl }) => {
       if (!['bullet', 'blitz', 'rapid'].includes(format)) {
         socket.emit('error', { message: 'Invalid format' });
         return;
       }
 
-      const rating = socket.user[`${format}_rating`] ?? 800;
+      // Always use the live rating from the DB, not the one baked into the
+      // JWT at login (which goes stale as soon as the player finishes a game).
+      let rating = socket.user[`${format}_rating`] ?? 800;
+      try {
+        const [row] = await sql`SELECT bullet_rating, blitz_rating, rapid_rating FROM users WHERE id = ${socket.user.id}`;
+        if (row) {
+          const col = `${format}_rating`;
+          if (row[col] != null) rating = row[col];
+        }
+      } catch (err) {
+        console.error(`[Matchmaking] rating lookup failed for ${socket.user.username}:`, err.message);
+        // fall back to the JWT-derived rating above
+      }
 
       const playerInfo = {
         socketId:    socket.id,
@@ -131,6 +144,64 @@ const socketHandler = (io) => {
 
         GameManager.endGame(gameId, null, 'draw',io)
           .catch(err => console.error('[socketHandler] endGame error:', err.message));
+      }
+    });
+
+    // ── Offer draw
+    socket.on('offerDraw', ({ gameId }) => {
+      const game = GameManager.getGame(gameId);
+      if (!game) {
+        socket.emit('error', { message: 'Game not found' });
+        return;
+      }
+
+      const playerColor = game.getPlayerColor(socket.id);
+      if (!playerColor) {
+        socket.emit('error', { message: 'You are not in this game' });
+        return;
+      }
+
+      if (!game.offerDraw(playerColor)) {
+        socket.emit('drawOfferRejected', {
+          message: game.drawOffer
+            ? 'A draw offer is already pending'
+            : 'You must make a move before offering another draw',
+        });
+        return;
+      }
+
+      const opponentColor  = playerColor === 'white' ? 'black' : 'white';
+      const opponentSocket = game.players[opponentColor];
+
+      io.to(opponentSocket).emit('drawOffered', { by: playerColor });
+      socket.emit('drawOfferSent', { by: playerColor });
+    });
+
+    // ── Respond to a pending draw offer
+    socket.on('respondDraw', ({ gameId, accept }) => {
+      const game = GameManager.getGame(gameId);
+      if (!game) return;
+
+      const playerColor = game.getPlayerColor(socket.id);
+      if (!playerColor) return;
+
+      // Ignore if there's no offer, or if you're trying to respond to your own offer
+      if (!game.drawOffer || game.drawOffer === playerColor) return;
+
+      const offerColor = game.respondDraw(accept);
+      if (!offerColor) return;
+
+      if (accept) {
+        io.to(gameId).emit('gameOver', {
+          status: 'draw',
+          winner: 'draw',
+        });
+
+        GameManager.endGame(gameId, null, 'draw_agreement', io)
+          .then(() => GameManager.deleteGame(gameId))
+          .catch(err => console.error('[socketHandler] draw endGame error:', err.message));
+      } else {
+        io.to(gameId).emit('drawDeclined', { by: playerColor });
       }
     });
 

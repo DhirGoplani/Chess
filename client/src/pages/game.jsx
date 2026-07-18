@@ -24,6 +24,8 @@ export default function Game() {
   const [moveHistory, setMoveHistory]   = useState([]);
   const [opponent, setOpponent]         = useState({});
   const [me, setMe]                     = useState({});
+  // Draw offer state: null (none), "sent" (I offered, waiting), "received" (opponent offered)
+  const [drawOffer, setDrawOffer]       = useState(null);
   const moveListRef                     = useRef(null);
   const preGameRatingRef                = useRef(null);
 
@@ -64,13 +66,27 @@ export default function Game() {
       chess.load(board);
       setLastMove({ from, to });
       setMoveHistory(mh || []);
+      setDrawOffer(null); // any move made voids a pending offer
       forceUpdate((n) => n + 1);
     });
 
     socket.on("gameOver", ({ status, winner }) => {
       setGameStatus("over");
       setResult({ winner, reason: status });
+      setDrawOffer(null);
     });
+
+    // Opponent has offered a draw — show accept/decline prompt
+    socket.on("drawOffered", () => setDrawOffer("received"));
+
+    // Server confirmed my offer went through — show "waiting" state
+    socket.on("drawOfferSent", () => setDrawOffer("sent"));
+
+    // Server refused to send my offer (already pending, or I must move first)
+    socket.on("drawOfferRejected", () => setDrawOffer(null));
+
+    // Opponent declined my offer (or I declined theirs) — reset for both
+    socket.on("drawDeclined", () => setDrawOffer(null));
 
     socket.on("opponentLeft", () => {
       setGameStatus("over");
@@ -95,6 +111,10 @@ export default function Game() {
       socket.off("gameOver");
       socket.off("opponentLeft");
       socket.off("ratingUpdate");
+      socket.off("drawOffered");
+      socket.off("drawOfferSent");
+      socket.off("drawOfferRejected");
+      socket.off("drawDeclined");
     };
   }, []);
 
@@ -110,6 +130,13 @@ export default function Game() {
     setResult({ winner: playerColour === "white" ? "black" : "white", reason: "resign" });
   };
   const handleBackToLobby = () => navigate("/home");
+
+  const handleOfferDraw   = () => connectSocket().emit("offerDraw", { gameId });
+  const handleAcceptDraw  = () => connectSocket().emit("respondDraw", { gameId, accept: true });
+  const handleDeclineDraw = () => {
+    connectSocket().emit("respondDraw", { gameId, accept: false });
+    setDrawOffer(null);
+  };
 
   const pairedMoves = [];
   for (let i = 0; i < moveHistory.length; i += 2)
@@ -260,11 +287,34 @@ export default function Game() {
             </div>
           </div>
 
+          {/* Incoming draw offer */}
+          {gameStatus === "playing" && drawOffer === "received" && (
+            <div style={s.drawPrompt}>
+              <span style={s.drawPromptText}>Opponent offers a draw</span>
+              <div style={s.drawPromptBtns}>
+                <button onClick={handleAcceptDraw} style={s.drawAcceptBtn}>Accept</button>
+                <button onClick={handleDeclineDraw} style={s.drawDeclineBtn}>Decline</button>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           {gameStatus === "playing" && (
-            <button onClick={handleResign} style={s.resignBtn}>
-              ⚑ Resign
-            </button>
+            <div style={s.actionRow}>
+              <button
+                onClick={handleOfferDraw}
+                disabled={drawOffer === "sent" || drawOffer === "received"}
+                style={{
+                  ...s.drawBtn,
+                  ...(drawOffer === "sent" ? s.drawBtnDisabled : {}),
+                }}
+              >
+                {drawOffer === "sent" ? "Draw Offer Sent…" : "½ Offer Draw"}
+              </button>
+              <button onClick={handleResign} style={s.resignBtn}>
+                ⚑ Resign
+              </button>
+            </div>
           )}
           {gameStatus === "over" && (
             <button onClick={handleBackToLobby} style={s.lobbyBtn}>
@@ -380,6 +430,8 @@ const s = {
   moveWhite: { color: "#c4a882", fontWeight: 500 },
   moveBlack: { color: "#8a7055" },
 
+  actionRow: { display: "flex", flexDirection: "column", gap: "8px" },
+
   resignBtn: {
     width: "100%", padding: "11px",
     background: "transparent",
@@ -388,6 +440,45 @@ const s = {
     fontSize: "0.88rem", cursor: "pointer",
     fontWeight: 500, fontFamily: "'DM Sans', sans-serif",
     transition: "all 0.2s",
+  },
+  drawBtn: {
+    width: "100%", padding: "11px",
+    background: "transparent",
+    border: "1px solid rgba(196,163,90,0.3)",
+    borderRadius: "4px", color: "#c4a35a",
+    fontSize: "0.88rem", cursor: "pointer",
+    fontWeight: 500, fontFamily: "'DM Sans', sans-serif",
+    transition: "all 0.2s",
+  },
+  drawBtnDisabled: {
+    opacity: 0.5, cursor: "default",
+  },
+  drawPrompt: {
+    background: "rgba(196,163,90,0.1)",
+    border: "1px solid rgba(196,163,90,0.3)",
+    borderRadius: "6px", padding: "12px 14px",
+    display: "flex", flexDirection: "column", gap: "8px",
+  },
+  drawPromptText: {
+    color: "#f0e6d3", fontSize: "0.85rem", fontWeight: 500,
+    textAlign: "center",
+  },
+  drawPromptBtns: { display: "flex", gap: "8px" },
+  drawAcceptBtn: {
+    flex: 1, padding: "9px",
+    background: "rgba(129,182,76,0.15)",
+    border: "1px solid rgba(129,182,76,0.4)",
+    borderRadius: "4px", color: "#81b64c",
+    fontSize: "0.82rem", fontWeight: 600, cursor: "pointer",
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  drawDeclineBtn: {
+    flex: 1, padding: "9px",
+    background: "rgba(200,60,60,0.1)",
+    border: "1px solid rgba(200,60,60,0.3)",
+    borderRadius: "4px", color: "#c05050",
+    fontSize: "0.82rem", fontWeight: 600, cursor: "pointer",
+    fontFamily: "'DM Sans', sans-serif",
   },
   lobbyBtn: {
     width: "100%", padding: "11px",
