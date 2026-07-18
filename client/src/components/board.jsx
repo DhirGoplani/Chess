@@ -1,8 +1,8 @@
 // client/src/components/Board/Board.jsx
 import { useState, useCallback } from "react";
 import { Chess } from "chess.js";
-import Square from "./Square";
-import Piece from "./Piece";
+import Square from "./square";
+import Piece from "./piece";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"]; // top → bottom
