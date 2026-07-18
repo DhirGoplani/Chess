@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import Board from "../../components/board";
 
-const API = (import.meta.env.VITE_API_URL ?? "http://localhost:3000") + "/api";
+const API = (import.meta.env.VITE_API_URL) + "/api";
 
 function authHeaders() {
   const token = localStorage.getItem("token");

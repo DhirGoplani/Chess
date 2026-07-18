@@ -4,7 +4,8 @@ import path from "path";
 import { EventEmitter } from "events";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ENGINE_PATH = path.join(__dirname, "../../engine/chess_engine");
+const ENGINE_BINARY = process.platform === "win32" ? "chess_engine.exe" : "chess_engine";
+const ENGINE_PATH = path.join(__dirname, "../../engine", ENGINE_BINARY);
 
 export class EngineProcess extends EventEmitter {
   constructor(gameId, engineColour) {
@@ -27,8 +28,12 @@ export class EngineProcess extends EventEmitter {
       });
 
       this.process.on("error", (err) => {
-        console.error(`[Engine ${this.gameId}] Spawn error:`, err.message);
-        reject(new Error(`Failed to start engine: ${err.message}`));
+        const hint =
+          err.code === "ENOENT"
+            ? ` Binary not found at ${ENGINE_PATH} - run "npm install" in /server to build it (requires g++).`
+            : "";
+        console.error(`[Engine ${this.gameId}] Spawn error:`, err.message + hint);
+        reject(new Error(`Failed to start engine: ${err.message}${hint}`));
       });
 
       this.process.stderr.on("data", (data) => {

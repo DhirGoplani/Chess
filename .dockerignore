@@ -1,0 +1,19 @@
+# Files/folders listed here are NEVER copied into the Docker image,
+# even if a COPY instruction in the Dockerfile would otherwise include them.
+# This works just like .gitignore, but only affects `docker build`.
+
+# Your local node_modules is built for YOUR OS (e.g. Windows). If it got
+# copied into the Linux container, some native packages would break.
+# npm install (which runs inside the Dockerfile) reinstalls everything
+# correctly for Linux instead.
+server/node_modules
+client/node_modules
+
+# Don't leak your local secrets into the image - the container gets its
+# env vars at runtime instead (docker run --env-file server/.env)
+server/.env
+
+# Editor/OS clutter, not needed inside the image
+.git
+.gitignore
+*.log

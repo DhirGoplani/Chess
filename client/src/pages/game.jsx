@@ -40,7 +40,7 @@ export default function Game() {
     setTimers({ white: timeControl, black: timeControl });
 
     const token = localStorage.getItem("token");
-    fetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${import.meta.env.VITE_API_URL}/api/users/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         const freshRating = data[`${format}_rating`] ?? 800;

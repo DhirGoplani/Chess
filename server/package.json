@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "build:engine": "node scripts/build-engine.js",
+    "postinstall": "node scripts/build-engine.js"
   },
   "keywords": [],
   "author": "",
