@@ -47,35 +47,55 @@ export async function makeMove(req, res) {
 
   // Send to engine, await reply
   try {
-    const response = await game.engine.sendMove({ from, to, promotion });
+    let response = await game.engine.sendMove({ from, to, promotion });
 
     if (response.type === "bestmove") {
-      const engineMove = {
-        from: response.from,
-        to: response.to,
-        promotion: response.promotion || null,
-      };
+      let engineMove = toEngineMove(response);
 
-      pvcStore.recordMove(gameId, engineMove, "engine");
-
-      // Apply engine move to chess.js to check resulting game state
-      chess.move({
-        from: engineMove.from,
-        to: engineMove.to,
-        promotion: engineMove.promotion || undefined,
-      });
-
-      const result = { engineMove };
-      if (chess.isGameOver()){
-        const { reason, winner } = getGameOverInfo(chess, "engine");
-        pvcStore.setStatus(gameId, reason);
-        result.gameOver = true;
-        result.reason = reason;
-        result.winner = winner;
-        // Give a moment then clean up
-        setTimeout(() => pvcStore.destroy(gameId), 5000);
+      // fix: never trust the engine's proposed move blindly — validate it
+      // against the authoritative chess.js board before applying it. A
+      // rejection here means the engine's long-lived internal board has
+      // desynced from the real game (this is what produced the earlier
+      // "Invalid move: a1-c1" bug). Resync the engine from pvcStore's move
+      // history — the source of truth, which does NOT yet include this bad
+      // move — and ask it to think again, once, instead of failing the
+      // whole request.
+      if (!applyIfLegal(chess, engineMove)) {
+        console.error(
+          `[pvc] engine proposed illegal move ${engineMove.from}-${engineMove.to} for game ${gameId} — resyncing`
+        );
+        const syncResult = await game.engine.sync(game.moves);
+        if (syncResult.type !== "synced") {
+          return res.status(500).json({
+            error: "Engine desynced and resync failed: " + (syncResult.message || "unknown response"),
+          });
+        }
+        response = await game.engine.requestBestMove();
+        if (response.type === "bestmove") {
+          engineMove = toEngineMove(response);
+          if (!applyIfLegal(chess, engineMove)) {
+            return res.status(500).json({
+              error: `Engine proposed illegal move ${engineMove.from}-${engineMove.to} even after resync`,
+            });
+          }
+        }
       }
-      return res.json(result);
+
+      if (response.type === "bestmove") {
+        pvcStore.recordMove(gameId, engineMove, "engine");
+
+        const result = { engineMove };
+        if (chess.isGameOver()){
+          const { reason, winner } = getGameOverInfo(chess, "engine");
+          pvcStore.setStatus(gameId, reason);
+          result.gameOver = true;
+          result.reason = reason;
+          result.winner = winner;
+          // Give a moment then clean up
+          setTimeout(() => pvcStore.destroy(gameId), 5000);
+        }
+        return res.json(result);
+      }
     }
 
     if(response.type === "gameover") {
@@ -116,6 +136,24 @@ function buildChessFromMoves(moves) {
     chess.move({ from: m.from, to: m.to, promotion: m.promotion || undefined });
   }
   return chess;
+}
+
+// fix: normalize an engine stdout response into the {from,to,promotion}
+// shape used everywhere else (pvcStore, chess.js).
+function toEngineMove(response) {
+  return { from: response.from, to: response.to, promotion: response.promotion || null };
+}
+
+// fix: try to apply a move to a chess.js board without letting it throw —
+// some chess.js versions throw on illegal moves instead of returning null,
+// and an engine desync should surface as a controlled resync, not a 500.
+function applyIfLegal(chess, move) {
+  try {
+    const result = chess.move({ from: move.from, to: move.to, promotion: move.promotion || undefined });
+    return !!result;
+  } catch (_) {
+    return false;
+  }
 }
 
 function getGameOverInfo(chess, lastMovedBy) {

@@ -18,6 +18,16 @@ export class EngineProcess extends EventEmitter {
     this._pendingResolve = null;
     this._pendingReject = null;
     this._pendingTimeout = null;
+    // fix: the engine's stdin/stdout protocol only ever has ONE request in
+    // flight at a time — the old code had a single _pendingResolve/
+    // _pendingReject slot with no queue, so two overlapping calls (a retry,
+    // a double submit, any race from elsewhere) could stomp on each other:
+    // the second write would land before the first reply came back, and
+    // whichever promise happened to be "pending" at that moment would
+    // resolve with the wrong line. That's how the engine's internal board
+    // can silently drift from the real game. This promise chain forces
+    // every request (move/sync/go) through one at a time, in order.
+    this._chain = Promise.resolve();
   }
 
   // Spawn the C++ engine and send the init line
@@ -93,7 +103,41 @@ export class EngineProcess extends EventEmitter {
     this._pendingTimeout = null;
   }
 
+  // fix: run `fn` only once every previously-queued request has settled
+  // (resolved or rejected), so calls to this engine are always strictly
+  // serialized — no two "move"/"sync"/"go" writes can ever be in flight
+  // on the same stdin pipe at once.
+  _enqueue(fn) {
+    const run = this._chain.then(fn, fn);
+    // Swallow so one failed request doesn't permanently wedge the queue
+    // for requests that come after it.
+    this._chain = run.then(
+      () => {},
+      () => {}
+    );
+    return run;
+  }
+
   sendMove(move) {
+    return this._enqueue(() => this._sendMoveNow(move));
+  }
+
+  // fix: push the authoritative move history to the engine and have it
+  // rebuild its internal board from scratch by replaying it. Call this when
+  // the engine's proposed move fails validation against the real game
+  // state, to recover instead of failing the whole game.
+  sync(moves) {
+    return this._enqueue(() => this._syncNow(moves));
+  }
+
+  // fix: ask the engine to compute + apply a move for whatever position it
+  // currently holds, without first applying a "human" move. Use this right
+  // after sync() to get a fresh, trustworthy reply.
+  requestBestMove() {
+    return this._enqueue(() => this._requestBestMoveNow());
+  }
+
+  _sendMoveNow(move) {
     return new Promise((resolve, reject) => {
       if (!this.process || !this.ready) {
         return reject(new Error("Engine not started"));
@@ -116,6 +160,53 @@ export class EngineProcess extends EventEmitter {
     });
   }
 
+  // fix: serialize a full move history to the engine's "sync" command.
+  _syncNow(moves) {
+    return new Promise((resolve, reject) => {
+      if (!this.process || !this.ready) {
+        return reject(new Error("Engine not started"));
+      }
+
+      const parts = moves
+        .map((m) => `${m.from} ${m.to} ${m.promotion || "-"}`)
+        .join(" ");
+      const cmd = `sync ${parts}\n`;
+      console.log(`[Engine ${this.gameId}] ← (resync, ${moves.length} moves)`);
+
+      this._pendingResolve = (line) => resolve(this._parseLine(line));
+      this._pendingReject = reject;
+
+      this._pendingTimeout = setTimeout(() => {
+        this._clearPending();
+        reject(new Error("Engine sync timeout"));
+      }, 10000);
+
+      this.process.stdin.write(cmd);
+    });
+  }
+
+  // fix: send the "go" command (compute a reply for the current position).
+  _requestBestMoveNow() {
+    return new Promise((resolve, reject) => {
+      if (!this.process || !this.ready) {
+        return reject(new Error("Engine not started"));
+      }
+
+      const cmd = `go\n`;
+      console.log(`[Engine ${this.gameId}] ←`, cmd.trim());
+
+      this._pendingResolve = (line) => resolve(this._parseLine(line));
+      this._pendingReject = reject;
+
+      this._pendingTimeout = setTimeout(() => {
+        this._clearPending();
+        reject(new Error("Engine response timeout"));
+      }, 10000);
+
+      this.process.stdin.write(cmd);
+    });
+  }
+
   // Parse a line from the engine into a structured response
   _parseLine(line) {
     if (line.startsWith("bestmove")) {
@@ -127,6 +218,11 @@ export class EngineProcess extends EventEmitter {
         to: parts[2],
         promotion: parts[3] || null,
       };
+    }
+    // fix: recognize the "synced <n>" response from the new sync command
+    if (line.startsWith("synced")) {
+      const parts = line.split(" ");
+      return { type: "synced", count: parseInt(parts[1], 10) };
     }
     if (line.startsWith("gameover")) {
       const parts = line.split(" ");

@@ -1,15 +1,3 @@
-// g++ -O2 validmoves.cpp move.cpp evaluate.cpp search.cpp enginewrapper.cpp -o chess_engine
-//
-// Protocol (stdin → stdout):
-//   Input:  "move e2 e4\n"        → engine applies human move, computes reply
-//           "move e7 e5 q\n"      → with promotion piece (q/r/b/n)
-//           "quit\n"              → exit cleanly
-//   Output: "bestmove e7 e5\n"    → engine's chosen move
-//           "bestmove e7 e8 q\n"  → engine move with promotion
-//           "gameover checkmate\n"
-//           "gameover stalemate\n"
-//           "error <message>\n"
-
 #include "board.h"
 #include <iostream>
 #include <string>
@@ -48,6 +36,37 @@ static bool hasLegalMoves(Board& board, int colour) {
     return !f.empty();
 }
 
+// fix: compute + apply the engine's best move for whichever colour is to
+// move on `board`, printing "bestmove ..." or "gameover ...". Factored out
+// so both "move" (human move first) and "go" (resync recovery, no human
+// move first) share the exact same reply logic instead of drifting apart.
+static void engineReplies(Board& board, int engineColour, int humanColour){
+    if(!hasLegalMoves(board, engineColour)){
+        if(board.isInCheck(engineColour)) cout << "gameover checkmate\n";
+        else cout << "gameover stalemate\n";
+        cout.flush();
+        return;
+    }
+    int promo = -1;
+    auto [ef, et] = getBestMove(board, engineColour, DEPTH, promo);
+    if(ef.empty()){
+        if(board.isInCheck(engineColour)) cout << "gameover checkmate\n";
+        else cout << "gameover stalemate\n";
+        cout.flush();
+        return;
+    }
+    board.makeMove(ef, et, promo);
+    if(promo != -1) cout << "bestmove " << ef << " " << et << " " << promoChar(promo) << endl;
+    else cout << "bestmove " << ef << " " << et << endl;
+    cout.flush();
+
+    if(!hasLegalMoves(board, humanColour)){
+        if(board.isInCheck(humanColour)) cout << "gameover checkmate\n";
+        else cout << "gameover stalemate\n";
+        cout.flush();
+    }
+}
+
 int main(){
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
@@ -82,7 +101,41 @@ int main(){
         istringstream iss(line);
         string cmd;
         iss >> cmd;
-        if(cmd == "quit")break;
+        if(cmd == "quit") break;
+
+        // fix: rebuild the board from scratch from the caller's authoritative
+        // move list. Used to recover when the caller detects this engine's
+        // internal board has drifted from the real game.
+        if(cmd == "sync"){
+            Board fresh;
+            fresh.initialise();
+            bool ok = true;
+            int applied = 0;
+            string mfrom, mto, mpromo;
+            while(iss >> mfrom >> mto >> mpromo){
+                int promo = (mpromo == "-") ? -1 : charToPromo(mpromo[0]);
+                Move m = fresh.makeMove(mfrom, mto, promo);
+                if(m.piece == -1){ ok = false; break; }
+                applied++;
+            }
+            if(!ok){
+                cout << "error sync failed at move " << (applied + 1) << "\n";
+                cout.flush();
+                continue;
+            }
+            board = fresh;
+            cout << "synced " << applied << "\n";
+            cout.flush();
+            continue;
+        }
+
+        // fix: compute a reply for the current position without applying a
+        // human move first — used right after "sync" to get a fresh move.
+        if(cmd == "go"){
+            engineReplies(board, engineColour, humanColour);
+            continue;
+        }
+
         if(cmd == "move"){
             string from, to;
             char promoC = 0;
@@ -97,44 +150,25 @@ int main(){
             }
             // Apply the human's move
             int humanPromo = promoC ? charToPromo(promoC) : -1;
-            board.makeMove(from, to, humanPromo);
+            Move humanMove = board.makeMove(from, to, humanPromo);
+            // fix: makeMove() returns piece == -1 when `from` had no piece on
+            // it at all — almost always a sign this board has desynced from
+            // the caller's real game state. Report it instead of silently
+            // continuing to search on a corrupted/no-op position.
+            if(humanMove.piece == -1){
+                cout << "error invalid move: no piece on " << from << "\n";
+                cout.flush();
+                continue;
+            }
             // Check result after human move (is engine now in check/mate/stalemate?)
-            int nextColour = engineColour; // engine moves next
-            if(!hasLegalMoves(board, nextColour)){
-                if(board.isInCheck(nextColour)) cout << "gameover checkmate\n";
-                else{
-                    cout << "gameover stalemate\n";
-                }
+            if(!hasLegalMoves(board, engineColour)){
+                if(board.isInCheck(engineColour)) cout << "gameover checkmate\n";
+                else cout << "gameover stalemate\n";
                 cout.flush();
                 continue;
             }
             // Engine thinks and replies
-            int promo = -1;
-            auto [ef, et] = getBestMove(board, engineColour, DEPTH, promo);
-            if(ef.empty()){
-                // for safe side
-                if (board.isInCheck(engineColour))cout << "gameover checkmate\n";
-                else{
-                    cout << "gameover stalemate\n";
-                }
-                cout.flush();
-                continue;
-            }
-            board.makeMove(ef, et, promo);
-            if(promo != -1) cout << "bestmove " << ef << " " << et << " " << promoChar(promo) << endl;
-            else{
-                cout << "bestmove " << ef << " " << et << endl;
-            }
-            cout.flush();
-
-            // Check result after engine move (is human now in checkmate/stalemate?)
-            if (!hasLegalMoves(board, humanColour)) {
-                if (board.isInCheck(humanColour))
-                    cout << "gameover checkmate\n";
-                else
-                    cout << "gameover stalemate\n";
-                cout.flush();
-            }
+            engineReplies(board, engineColour, humanColour);
         }
     }
 

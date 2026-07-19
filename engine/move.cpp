@@ -19,7 +19,8 @@ Move Board::makeMove(string fromSq, string toSq, int promotion){
     Move move;
     move.from           = from;
     move.to             = to;
-    move.colour         = 0;
+    move.piece          = -1;   // fix: explicit "not found" sentinel (was uninitialized)
+    move.colour         = -1;   // fix: explicit "not found" sentinel (was uninitialized)
     move.capturedPiece  = -1;
     move.capturedColour = -1;
     move.isEnPassant    = false;
@@ -36,6 +37,13 @@ Move Board::makeMove(string fromSq, string toSq, int promotion){
         if(pieces[1][p]&fromBB){ move.piece=p; move.colour=1; break; }
     }
 
+    // fix: fromSq had no piece on it (e.g. caller/engine state desync).
+    // Bail out now instead of indexing pieces[][] with garbage colour/piece
+    // below, which was silently corrupting the board (phantom pieces).
+    if(move.piece == -1){
+        return move;
+    }
+
     int sideToMove = move.colour;
     int enemy      = 1-sideToMove;
 
@@ -44,6 +52,14 @@ Move Board::makeMove(string fromSq, string toSq, int promotion){
             move.capturedPiece  = p;
             move.capturedColour = enemy;
             pieces[enemy][p]   &= ~toBB;
+            // fix: capturing a rook on its home square revokes that side's
+            // castling right, same as if the rook had moved away.
+            if(p==ROOK){
+                if(toSq=="a1") castlingRights.WhiteQueenSide=false;
+                if(toSq=="h1") castlingRights.WhiteKingSide =false;
+                if(toSq=="a8") castlingRights.BlackQueenSide=false;
+                if(toSq=="h8") castlingRights.BlackKingSide =false;
+            }
             break;
         }
     }
@@ -100,6 +116,10 @@ Move Board::makeMove(string fromSq, string toSq, int promotion){
 }
 
 void Board::unmakeMove(Move& move){
+    // fix: nothing was actually applied by a bailed-out makeMove() — don't
+    // touch the board (colour/piece are -1 sentinels, not valid indices).
+    if(move.piece == -1) return;
+
     int sideToMove = move.colour;
     int from       = move.from;
     int to         = move.to;
