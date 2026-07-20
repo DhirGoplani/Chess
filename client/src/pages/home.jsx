@@ -60,24 +60,30 @@ export default function Home() {
       <div style={s.vignette} />
 
       {/* NAVBAR */}
-      <nav style={s.nav}>
-        <div style={s.navLogo}>
-          <span style={s.logoIcon}>♞</span>
-          <span style={s.logoText}>ChessMate</span>
-        </div>
-        <div style={s.navRight}>
-          <div style={s.navUserPill}>
-            <span style={s.navUserIcon}>♟</span>
-            <span style={s.navUsername}>{user.username}</span>
-          </div>
-          <button style={s.logoutBtn} onClick={() => { localStorage.clear(); navigate("/"); }}>
-            Sign Out
-          </button>
-        </div>
-        <button style={s.hamburger} onClick={() => setMenuOpen(v => !v)}>
-          {menuOpen ? "✕" : "☰"}
-        </button>
-      </nav>
+<nav style={s.nav}>
+  <div style={s.navLogo}>
+    <span style={s.logoIcon}>♞</span>
+    <span style={s.logoText}>ChessMate</span>
+  </div>
+  <div style={s.navRight}>
+    <button
+      onClick={() => navigate("/history")}
+      style={{ padding:"7px 16px", background:"transparent", border:"1px solid rgba(196,163,90,0.25)", borderRadius:"4px", color:"#c4a882", fontSize:"0.82rem", cursor:"pointer" }}
+    >
+      History
+    </button>
+    <div style={s.navUserPill}>
+      <span style={s.navUserIcon}>♟</span>
+      <span style={s.navUsername}>{user.username}</span>
+    </div>
+    <button style={s.logoutBtn} onClick={() => { localStorage.clear(); navigate("/"); }}>
+      Sign Out
+    </button>
+  </div>
+  <button style={s.hamburger} onClick={() => setMenuOpen(v => !v)}>
+    {menuOpen ? "✕" : "☰"}
+  </button>
+</nav>
 
       {menuOpen && (
         <div style={s.mobileMenu}>

@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRouter from "./auth/authRoutes.js";
 import pvcRouter from "./pvc/pvcRoutes.js";
+import gameRouter from "./game/gameRoutes.js";  // ← add this
 import { pvcStore } from "./pvc/pvcStore.js";
 import socketHandler from "./socket/socketHandler.js";
 import dotenv from "dotenv";
@@ -38,6 +39,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/pvc",  pvcRouter);
+app.use("/api/games", gameRouter);  // ← add this
 setInterval(() => pvcStore.cleanup(), 60 * 60 * 1000);
 
 socketHandler(io);

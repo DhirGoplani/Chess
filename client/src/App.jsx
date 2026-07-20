@@ -8,7 +8,8 @@ import PvcLobby from './pages/pvc/PvcLobby'
 import PvcGame from './pages/pvc/PvcGame'
 import ForgotPassword from './pages/forgotpassword'
 import ResetPassword from './pages/resetpassword'
-
+import History  from './pages/history'
+import Analysis from './pages/analysis'
 function App() {
   return (
     <BrowserRouter>
@@ -22,6 +23,8 @@ function App() {
         <Route path="/pvc/game/:gameId" element={<PvcGame />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/history"           element={<History />} />
+        <Route path="/analysis/:gameId"  element={<Analysis />} />
       </Routes>
     </BrowserRouter>
   )
