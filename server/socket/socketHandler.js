@@ -103,7 +103,17 @@ const socketHandler = (io) => {
         socket.emit('error', { message: result.message ?? 'Invalid move' });
         return;
       }
-
+      const moveNumber  = game.moveHistory.length;
+      const movedColour = playerColor; // playerColor is the one who just moved
+      GameManager.recordMove(gameId, {
+      moveNumber,
+      colour:   movedColour,
+      from,
+      to,
+      fen:      result.board,
+      san:      result.move.san,
+      timeLeft: result.timers?.[movedColour] ?? null
+});
       // Broadcast move to both players
       io.to(gameId).emit('moveMade', {
         from,
@@ -220,7 +230,7 @@ const socketHandler = (io) => {
 
       io.to(gameId).emit('gameOver', {
         status: 'resign',
-        winner: winnerColor,
+        winner: winnerColor, 
       });
 
       GameManager.endGame(gameId, winnerId, 'resign',io)
