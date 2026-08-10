@@ -13,6 +13,7 @@ export default function Square({
   file,           // a-h, show on bottom rank
   showRank,       // bool
   showFile,       // bool
+  size,           // px — comes from Board.jsx's measured sqPx
   onClick,
   children,
 }) {
@@ -27,8 +28,8 @@ export default function Square({
   return (
     <div
       onClick={onClick}
-      style={{ backgroundColor: bg }}
-      className="relative w-16 h-16 flex items-center justify-center cursor-pointer
+      style={{ backgroundColor: bg, width: size, height: size }}
+      className="relative flex items-center justify-center cursor-pointer
                  transition-[background-color] duration-100 select-none"
     >
       {/* Rank label — left edge */}

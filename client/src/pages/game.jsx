@@ -151,11 +151,12 @@ export default function Game() {
 
   return (
     <div style={s.root}>
+      <GlobalStyles />
 
       {/* ── RESULT POPUP ── */}
       {result && (
         <div style={s.overlay}>
-          <div style={s.popup}>
+          <div style={s.popup} className="popup-el">
             <div style={{
               ...s.popupGlow,
               background: result.winner === playerColour
@@ -206,10 +207,10 @@ export default function Game() {
       )}
 
       {/* ── MAIN LAYOUT ── */}
-      <div style={s.layout}>
+      <div style={s.layout} className="layout-el">
 
         {/* ── LEFT: BOARD + PLAYERS ── */}
-        <div style={s.boardCol}>
+        <div style={s.boardCol} className="board-col-el">
 
           {/* Opponent */}
           <div style={{ ...s.playerBar, ...(opTurn ? s.playerBarActive : {}) }}>
@@ -223,14 +224,17 @@ export default function Game() {
             </div>
           </div>
 
-          {/* Board */}
-          <Board
-            chess={chess}
-            playerColour={playerColour}
-            onMove={handleMove}
-            lastMove={lastMove}
-            engineThinking={gameStatus !== "playing"}
-          />
+          {/* Board — capped at 520px, but always fluid down to the container's real width */}
+          <div style={s.boardWrap}>
+            <Board
+              chess={chess}
+              playerColour={playerColour}
+              onMove={handleMove}
+              lastMove={lastMove}
+              engineThinking={gameStatus !== "playing"}
+              size={520}
+            />
+          </div>
 
           {/* Me */}
           <div style={{ ...s.playerBar, ...(myTurn ? s.playerBarActive : {}) }}>
@@ -246,7 +250,7 @@ export default function Game() {
         </div>
 
         {/* ── RIGHT PANEL ── */}
-        <div style={s.sideCol}>
+        <div style={s.sideCol} className="side-col-el">
 
           {/* Game info header */}
           <div style={s.sideHeader}>
@@ -268,12 +272,12 @@ export default function Game() {
           </div>
 
           {/* Move history */}
-          <div style={s.sideCard}>
+          <div style={s.sideCard} className="side-card-el">
             <div style={s.sideCardTitle}>
               <span>Move History</span>
               <span style={s.movesCount}>{moveHistory.length}</span>
             </div>
-            <div style={s.moveList} ref={moveListRef}>
+            <div style={s.moveList} className="move-list-el" ref={moveListRef}>
               {pairedMoves.length === 0 && (
                 <p style={s.noMoves}>Waiting for first move…</p>
               )}
@@ -323,13 +327,6 @@ export default function Game() {
           )}
         </div>
       </div>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @keyframes popIn  { from { opacity:0; transform:scale(0.9) translateY(16px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-      `}</style>
     </div>
   );
 }
@@ -341,11 +338,14 @@ const s = {
     display: "flex", alignItems: "center", justifyContent: "center",
     fontFamily: "'DM Sans', sans-serif",
     padding: "24px",
+    boxSizing: "border-box",
+    overflowX: "hidden",
   },
-  layout: { display: "flex", gap: "20px", alignItems: "flex-start" },
+  layout: { display: "flex", gap: "20px", alignItems: "flex-start", width: "100%", maxWidth: "800px", justifyContent: "center" },
 
   // BOARD COLUMN
-  boardCol: { display: "flex", flexDirection: "column", gap: "8px" },
+  boardCol: { display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "520px", minWidth: 0 },
+  boardWrap: { width: "100%" },
 
   playerBar: {
     display: "flex", alignItems: "center", gap: "12px",
@@ -359,8 +359,8 @@ const s = {
     boxShadow: "0 0 0 1px rgba(196,163,90,0.1), 0 4px 20px rgba(0,0,0,0.3)",
   },
   colorDot: { width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0 },
-  playerInfo: { flex: 1 },
-  playerName: { fontWeight: 600, color: "#f0e6d3", fontSize: "0.92rem" },
+  playerInfo: { flex: 1, minWidth: 0 },
+  playerName: { fontWeight: 600, color: "#f0e6d3", fontSize: "0.92rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   playerRating: { fontSize: "0.72rem", color: "#8a7055", marginTop: "1px" },
 
   timerBox: {
@@ -370,7 +370,7 @@ const s = {
     fontFamily: "'Playfair Display', serif",
     fontSize: "1.25rem", fontWeight: 700,
     color: "#c4a882", minWidth: "72px", textAlign: "center",
-    transition: "all 0.2s",
+    transition: "all 0.2s", flexShrink: 0,
   },
   timerActive: {
     background: "rgba(196,163,90,0.12)",
@@ -379,7 +379,7 @@ const s = {
   },
 
   // SIDE COLUMN
-  sideCol: { width: "210px", display: "flex", flexDirection: "column", gap: "10px" },
+  sideCol: { width: "210px", flexShrink: 0, display: "flex", flexDirection: "column", gap: "10px" },
 
   sideHeader: {
     display: "flex", alignItems: "center", gap: "10px",
@@ -498,18 +498,21 @@ const s = {
     display: "flex", alignItems: "center", justifyContent: "center",
     zIndex: 100,
     animation: "fadeIn 0.2s ease both",
+    padding: "16px",
+    boxSizing: "border-box",
   },
   popup: {
     position: "relative",
     background: "#2c1a0e",
     border: "1px solid rgba(196,163,90,0.2)",
     borderRadius: "10px", padding: "44px 40px",
-    textAlign: "center", minWidth: "300px",
+    textAlign: "center", minWidth: "300px", maxWidth: "100%",
     display: "flex", flexDirection: "column",
     alignItems: "center", gap: "14px",
     boxShadow: "0 0 0 1px rgba(196,163,90,0.08), 0 32px 80px rgba(0,0,0,0.7)",
     animation: "popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both",
     overflow: "hidden",
+    boxSizing: "border-box",
   },
   popupGlow: { position: "absolute", inset: 0, pointerEvents: "none" },
   popupIcon: { fontSize: "3.2rem", lineHeight: 1, position: "relative" },
@@ -542,3 +545,33 @@ const s = {
     position: "relative", transition: "all 0.2s",
   },
 };
+
+const GlobalStyles = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { overflow-x: hidden; }
+
+    @keyframes popIn  { from { opacity:0; transform:scale(0.9) translateY(16px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+    button:not(:disabled):hover { filter: brightness(1.12); }
+
+    .move-list-el::-webkit-scrollbar { width: 5px; }
+    .move-list-el::-webkit-scrollbar-thumb { background: rgba(196,163,90,0.25); border-radius: 3px; }
+    .move-list-el::-webkit-scrollbar-track { background: transparent; }
+
+    /* Stack board above the side panel once there isn't room for both side by side */
+    @media (max-width: 780px) {
+      .layout-el { flex-direction: column !important; align-items: center !important; }
+      .board-col-el { max-width: 480px !important; }
+      .side-col-el { width: 100% !important; max-width: 480px !important; }
+      .side-card-el { flex: none !important; }
+      .move-list-el { max-height: 220px !important; }
+    }
+
+    @media (max-width: 480px) {
+      .popup-el { padding: 32px 22px !important; }
+    }
+  `}</style>
+);

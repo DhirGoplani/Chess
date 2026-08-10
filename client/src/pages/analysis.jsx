@@ -45,17 +45,25 @@ export default function Analysis() {
   }, [currentIdx, moves]);
 
   // Responsive board sizing
+  // Accounts for: content horizontal padding (32px) + board frame padding (up to 24px)
+  // + a safety buffer, so the board can never exceed the viewport width and get clipped.
   useEffect(() => {
     const calc = () => {
       const w = window.innerWidth;
-      if (w < 420) setBoardSize(w - 48);
-      else if (w < 640) setBoardSize(360);
-      else if (w < 900) setBoardSize(420);
-      else setBoardSize(480);
+      let size;
+      if (w >= 900) size = 480;
+      else if (w >= 640) size = 420;
+      else if (w >= 480) size = 360;
+      else size = w - 80; // fluid on phones, generous buffer
+      setBoardSize(Math.max(220, Math.min(size, w - 64)));
     };
     calc();
     window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
+    window.addEventListener("orientationchange", calc);
+    return () => {
+      window.removeEventListener("resize", calc);
+      window.removeEventListener("orientationchange", calc);
+    };
   }, []);
 
   const goToStart = () => setCurrentIdx(-1);
@@ -109,7 +117,7 @@ export default function Analysis() {
         </div>
       )}
 
-      <div style={s.content}>
+      <div style={s.content} className="content-el">
         <div style={s.titleRow}>
           <p style={s.eyebrow}>Post-Game Review</p>
           <h1 style={s.title} className="title-el">Game Analysis</h1>
@@ -226,8 +234,8 @@ const s = {
   loading: { color: "#8a7055", fontSize: "0.9rem" },
 
   layout: { display: "flex", gap: "24px", alignItems: "flex-start", justifyContent: "center", animation: "fadeUp 0.6s ease both" },
-  boardCol: { display: "flex", flexDirection: "column", gap: "14px", alignItems: "center" },
-  boardFrame: { padding: "12px", background: "rgba(44,26,14,0.85)", border: "1px solid rgba(196,163,90,0.18)", borderRadius: "10px", boxShadow: "0 8px 32px rgba(0,0,0,0.35)", backdropFilter: "blur(12px)" },
+  boardCol: { display: "flex", flexDirection: "column", gap: "14px", alignItems: "center", width: "100%", maxWidth: "100%" },
+  boardFrame: { padding: "12px", background: "rgba(44,26,14,0.85)", border: "1px solid rgba(196,163,90,0.18)", borderRadius: "10px", boxShadow: "0 8px 32px rgba(0,0,0,0.35)", backdropFilter: "blur(12px)", maxWidth: "100%", overflow: "hidden", display: "inline-flex" },
 
   controls: { display: "flex", alignItems: "center", gap: "8px", justifyContent: "center", background: "rgba(44,26,14,0.85)", border: "1px solid rgba(196,163,90,0.18)", borderRadius: "8px", padding: "10px 16px", backdropFilter: "blur(12px)", width: "100%" },
   ctrlBtn: { width: "36px", height: "36px", background: "rgba(196,163,90,0.08)", border: "1px solid rgba(196,163,90,0.25)", borderRadius: "6px", cursor: "pointer", fontSize: "1rem", color: "#c4a882", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" },
@@ -281,6 +289,9 @@ const GlobalStyles = () => (
       .title-el { font-size: 1.8rem !important; }
       .board-frame-el { padding: 8px !important; }
       .move-list-el { max-height: 300px !important; }
+      .content-el { padding-left: 10px !important; padding-right: 10px !important; }
     }
+
+    html, body { overflow-x: hidden; }
   `}</style>
 );

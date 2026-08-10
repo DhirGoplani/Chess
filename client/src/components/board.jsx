@@ -1,5 +1,5 @@
 // client/src/components/Board/Board.jsx
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Chess } from "chess.js";
 import Square from "./square";
 import Piece from "./piece";
@@ -21,7 +21,7 @@ export default function Board({
   onMove,
   lastMove,
   engineThinking,
-  size,           // optional px size — if omitted, defaults to 8 × 4rem = 512px
+  size,           // optional px CAP — the board fills its container and never exceeds this
 }) {
   const [selected,   setSelected]   = useState(null);
   const [legalDests, setLegalDests] = useState([]);
@@ -29,8 +29,34 @@ export default function Board({
 
   const board = chess.board();
 
-  // Square size: if a numeric `size` prop is passed use it, otherwise fall back to 4rem (64px)
-  const sqPx = size ? Math.floor(size / 8) : 64;
+  // --- Fluid sizing -----------------------------------------------------
+  // The wrapper is sized entirely by CSS (width:100%, max-width:<size>px,
+  // aspect-ratio:1/1) so it can NEVER be wider than its parent allows —
+  // no matter what `size` is passed in. We measure the *actual rendered*
+  // width with ResizeObserver and derive the per-square pixel size from
+  // that, so Square/Piece always match reality instead of a guessed value.
+  const wrapperRef = useRef(null);
+  const [renderedWidth, setRenderedWidth] = useState(size || 512);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    // Set an initial measurement immediately (ResizeObserver fires async).
+    if (el.offsetWidth) setRenderedWidth(el.offsetWidth);
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        if (w > 0) setRenderedWidth(w);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const sqPx = renderedWidth / 8;
+  // ------------------------------------------------------------------------
 
   const checkSquare = (() => {
     if (!chess.isCheck()) return null;
@@ -108,24 +134,29 @@ export default function Board({
   const displayRanks = playerColour === "black" ? [...RANKS].reverse() : RANKS;
   const displayFiles = playerColour === "black" ? [...FILES].reverse() : FILES;
 
+  const promoBtnSize = Math.max(sqPx, 44);
+
   return (
     <div
+      ref={wrapperRef}
       style={{
         position: "relative",
-        display: "inline-block",
+        width: "100%",
+        maxWidth: size ? `${size}px` : "512px",
+        aspectRatio: "1 / 1",
         borderRadius: "4px",
         overflow: "hidden",
         boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3)",
-        width: `${sqPx * 8}px`,
-        height: `${sqPx * 8}px`,
         flexShrink: 0,
       }}
     >
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(8, ${sqPx}px)`,
-          gridTemplateRows:    `repeat(8, ${sqPx}px)`,
+          gridTemplateColumns: "repeat(8, 1fr)",
+          gridTemplateRows:    "repeat(8, 1fr)",
+          width: "100%",
+          height: "100%",
         }}
       >
         {displayRanks.map((rank, ri) =>
@@ -181,6 +212,7 @@ export default function Board({
             alignItems: "center",
             justifyContent: "center",
             zIndex: 20,
+            padding: "8px",
           }}
         >
           <div
@@ -192,6 +224,7 @@ export default function Board({
               padding: "16px",
               boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
               textAlign: "center",
+              maxWidth: "100%",
             }}
           >
             <div
@@ -215,8 +248,8 @@ export default function Board({
                   title={label}
                   aria-label={label}
                   style={{
-                    width: `${Math.max(sqPx, 56)}px`,
-                    height: `${Math.max(sqPx, 56)}px`,
+                    width: `${promoBtnSize}px`,
+                    height: `${promoBtnSize}px`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -233,7 +266,7 @@ export default function Board({
                   <Piece
                     type={TYPE_MAP[code]}
                     color={promotionPending.color === "w" ? "white" : "black"}
-                    size={Math.max(sqPx, 56)}
+                    size={promoBtnSize}
                   />
                 </button>
               ))}
