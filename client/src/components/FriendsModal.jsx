@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getApiUrl } from "../utils/apiUrl";
 
 export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
   const [activeTab, setActiveTab] = useState("friends"); // "friends" | "requests" | "add"
@@ -19,7 +20,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/friends/list`, {
+      const res = await fetch(`${getApiUrl()}/api/friends/list`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -47,7 +48,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
     setSearchLoading(true);
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/friends/search?username=${encodeURIComponent(
+        `${getApiUrl()}/api/friends/search?username=${encodeURIComponent(
           searchQuery.trim()
         )}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -65,7 +66,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
 
   const handleSendRequest = async (receiverId) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/friends/request`, {
+      const res = await fetch(`${getApiUrl()}/api/friends/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,7 +88,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
 
   const handleRespondRequest = async (requestId, accept) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/friends/respond`, {
+      const res = await fetch(`${getApiUrl()}/api/friends/respond`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -106,7 +107,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
   const handleRemoveFriend = async (friendId, username) => {
     if (!window.confirm(`Are you sure you want to remove ${username} from your friends?`)) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/friends/${friendId}`, {
+      const res = await fetch(`${getApiUrl()}/api/friends/${friendId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

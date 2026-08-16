@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getApiUrl } from "../../utils/apiUrl";
 
-const API = (import.meta.env.VITE_API_URL) + "/api";
+const API = getApiUrl() + "/api";
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
 export default function PvcLobby() {

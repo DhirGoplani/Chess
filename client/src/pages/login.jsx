@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getApiUrl } from "../utils/apiUrl";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -16,7 +17,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+      const res = await fetch(`${getApiUrl()}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

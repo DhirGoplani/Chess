@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import Board from "../components/board";
+import { getApiUrl } from "../utils/apiUrl";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -21,7 +22,7 @@ export default function Analysis() {
   useEffect(() => {
     const fetchMoves = async () => {
       try {
-        const res  = await fetch(`${import.meta.env.VITE_API_URL}/api/games/${gameId}/moves`, {
+        const res  = await fetch(`${getApiUrl()}/api/games/${gameId}/moves`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

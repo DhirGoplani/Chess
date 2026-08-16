@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getApiUrl } from "../utils/apiUrl";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -13,7 +14,7 @@ export default function ForgotPassword() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/forgotpassword`, {
+      const res = await fetch(`${getApiUrl()}/api/auth/forgotpassword`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),

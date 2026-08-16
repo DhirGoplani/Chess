@@ -16,8 +16,19 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+const corsOriginDelegate = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (process.env.CLIENT_URL && origin === process.env.CLIENT_URL) return callback(null, true);
+  if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) return callback(null, true);
+  // Allow local Wi-Fi / LAN IP addresses (e.g. http://192.168.x.x:5173)
+  if (/^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+    return callback(null, true);
+  }
+  callback(null, true);
+};
+
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: corsOriginDelegate,
   credentials: true,         
   methods: ["GET", "POST", "PUT", "DELETE"],
 }));
@@ -26,7 +37,7 @@ app.use(cookieParser());
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: corsOriginDelegate,
     methods: ["GET", "POST"],
     credentials: true,
   }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { getApiUrl } from "../utils/apiUrl";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -24,7 +25,7 @@ export default function ResetPassword() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/resetpassword`, {
+      const res = await fetch(`${getApiUrl()}/api/auth/resetpassword`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),

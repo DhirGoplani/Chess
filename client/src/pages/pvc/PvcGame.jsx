@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import Board from "../../components/board";
+import { getApiUrl } from "../../utils/apiUrl";
 
-const API = (import.meta.env.VITE_API_URL) + "/api";
+const API = getApiUrl() + "/api";
 
 function authHeaders() {
   const token = localStorage.getItem("token");

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getApiUrl } from "../utils/apiUrl";
 
 export default function History() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function History() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/games/history`, {
+        const res = await fetch(`${getApiUrl()}/api/games/history`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

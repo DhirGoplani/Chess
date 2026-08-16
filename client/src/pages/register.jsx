@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getApiUrl } from "../utils/apiUrl";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 const USERNAME_REGEX = /^[a-z0-9_.]*$/;
@@ -36,7 +37,7 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
+      const res = await fetch(`${getApiUrl()}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

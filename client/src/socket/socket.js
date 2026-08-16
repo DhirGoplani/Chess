@@ -1,4 +1,5 @@
 import { io } from "socket.io-client";
+import { getApiUrl } from "../utils/apiUrl";
 
 let socket = null;
 
@@ -7,7 +8,7 @@ export const getSocket = () => {
 
   const token = localStorage.getItem("token");
 
-  socket = io(import.meta.env.VITE_API_URL, {
+  socket = io(getApiUrl(), {
     auth: { token },
     autoConnect: false,
   });
