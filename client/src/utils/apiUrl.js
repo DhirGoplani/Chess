@@ -5,15 +5,26 @@
 export const getApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
 
+  // 1. If VITE_API_URL is configured in Vercel / build env, always use it
+  if (envUrl) {
+    return envUrl.replace(/\/$/, "");
+  }
+
+  // 2. If running locally on browser
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-    // If accessed via local network IP or custom hostname instead of localhost
-    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+    // Check if it's a local LAN IP (e.g., 192.168.x.x) for local mobile testing
+    if (
+      hostname !== "localhost" &&
+      hostname !== "127.0.0.1" &&
+      /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)
+    ) {
       const protocol = window.location.protocol || "http:";
       const port = import.meta.env.VITE_SERVER_PORT || "3000";
       return `${protocol}//${hostname}:${port}`;
     }
   }
 
-  return envUrl || "http://localhost:3000";
+  // 3. Fallback default for local dev
+  return "http://localhost:3000";
 };
