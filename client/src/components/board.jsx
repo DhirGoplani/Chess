@@ -25,16 +25,13 @@ export default function Board({
 }) {
   const [selected,   setSelected]   = useState(null);
   const [legalDests, setLegalDests] = useState([]);
+  const [premove,    setPremove]    = useState(null); // { from, to, promotion }
   const [promotionPending, setPromotionPending] = useState(null); // { from, to, color }
 
   const board = chess.board();
+  const isPlayerTurn = !engineThinking && ((chess.turn() === "w") === (playerColour === "white"));
 
   // --- Fluid sizing -----------------------------------------------------
-  // The wrapper is sized entirely by CSS (width:100%, max-width:<size>px,
-  // aspect-ratio:1/1) so it can NEVER be wider than its parent allows —
-  // no matter what `size` is passed in. We measure the *actual rendered*
-  // width with ResizeObserver and derive the per-square pixel size from
-  // that, so Square/Piece always match reality instead of a guessed value.
   const wrapperRef = useRef(null);
   const [renderedWidth, setRenderedWidth] = useState(size || 512);
 
@@ -42,7 +39,6 @@ export default function Board({
     const el = wrapperRef.current;
     if (!el) return;
 
-    // Set an initial measurement immediately (ResizeObserver fires async).
     if (el.offsetWidth) setRenderedWidth(el.offsetWidth);
 
     const ro = new ResizeObserver((entries) => {
@@ -56,6 +52,22 @@ export default function Board({
   }, []);
 
   const sqPx = renderedWidth / 8;
+
+  // --- Auto-execute Premove on player turn -------------------------------
+  useEffect(() => {
+    if (isPlayerTurn && premove) {
+      const pm = premove;
+      setPremove(null);
+
+      // Verify legal moves for player in current board position
+      const moves = chess.moves({ verbose: true });
+      const legal = moves.some((m) => m.from === pm.from && m.to === pm.to);
+
+      if (legal) {
+        onMove(pm.from, pm.to, pm.promotion);
+      }
+    }
+  }, [isPlayerTurn, premove, chess, onMove]);
   // ------------------------------------------------------------------------
 
   const checkSquare = (() => {
@@ -71,9 +83,43 @@ export default function Board({
   })();
 
   const handleSquareClick = useCallback((square) => {
-    if (engineThinking) return;
-
     const piece = chess.get(square);
+
+    // --- PREMOVE LOGIC when not player's turn -----------------------------
+    if (!isPlayerTurn) {
+      if (!selected) {
+        if (!piece || (piece.color === "w") !== (playerColour === "white")) return;
+        setSelected(square);
+        return;
+      }
+
+      if (selected === square) {
+        setSelected(null);
+        setPremove(null);
+        return;
+      }
+
+      if (piece && (piece.color === "w") === (playerColour === "white")) {
+        setSelected(square);
+        return;
+      }
+
+      // Record premove from selected -> square
+      const movingPiece = chess.get(selected);
+      const isPromotion =
+        movingPiece?.type === "p" &&
+        ((playerColour === "white" && square[1] === "8") ||
+         (playerColour === "black" && square[1] === "1"));
+
+      const from = selected;
+      setSelected(null);
+      setPremove({ from, to: square, promotion: isPromotion ? "q" : undefined });
+      return;
+    }
+    // ----------------------------------------------------------------------
+
+    // Clear any leftover premove when playing real turn
+    if (premove) setPremove(null);
 
     if (!selected) {
       if (!piece || (piece.color === "w") !== (playerColour === "white")) return;
@@ -118,7 +164,7 @@ export default function Board({
 
     setSelected(null);
     setLegalDests([]);
-  }, [selected, legalDests, chess, playerColour, engineThinking, onMove]);
+  }, [selected, legalDests, chess, playerColour, isPlayerTurn, premove, onMove]);
 
   const handlePromotionChoice = useCallback((pieceCode) => {
     if (!promotionPending) return;
@@ -139,6 +185,12 @@ export default function Board({
   return (
     <div
       ref={wrapperRef}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setPremove(null);
+        setSelected(null);
+        setLegalDests([]);
+      }}
       style={{
         position: "relative",
         width: "100%",
@@ -168,6 +220,7 @@ export default function Board({
             const piece    = board[rowIndex]?.[colIndex];
 
             const isSelected = selected === square;
+            const isPremove  = premove && (premove.from === square || premove.to === square);
             const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square);
             const isCheck    = checkSquare === square;
             const hasLegal   = legalDests.includes(square);
@@ -178,6 +231,7 @@ export default function Board({
                 key={square}
                 isLight={isLight}
                 isSelected={isSelected}
+                isPremove={!!isPremove}
                 isLastMove={!!isLastMove}
                 isCheck={isCheck}
                 legalMove={legalMove}

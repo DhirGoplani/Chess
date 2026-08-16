@@ -8,6 +8,7 @@ export default function Square({
   isSelected,
   isLastMove,
   isCheck,
+  isPremove,
   legalMove,      // null | "move" | "capture"
   rank,           // 1-8, show on leftmost file
   file,           // a-h, show on bottom rank
@@ -23,6 +24,7 @@ export default function Square({
   // Overlays (order matters — check beats selection)
   if (isLastMove) bg = isLight ? "#DAC476" : "#9A7D2E";
   if (isSelected) bg = isLight ? "#E8E04A" : "#C6B829";
+  if (isPremove)  bg = isLight ? "#fca5a5" : "#dc2626";
   if (isCheck)    bg = "#C84040";
 
   return (
@@ -62,6 +64,12 @@ export default function Square({
       {legalMove === "capture" && (
         <div className="absolute inset-0 rounded-full pointer-events-none z-10"
              style={{ boxShadow: "inset 0 0 0 7px rgba(0,0,0,0.22)" }} />
+      )}
+
+      {/* Premove light red glowing overlay */}
+      {isPremove && (
+        <div className="absolute inset-0 pointer-events-none z-10 animate-pulse"
+             style={{ background: "rgba(239, 68, 68, 0.35)", border: "2px solid #ef4444" }} />
       )}
 
       {/* Hover highlight */}
