@@ -2,19 +2,21 @@ import { v4 as uuidv4 } from "uuid";
 import { Chess } from "chess.js";
 import { pvcStore } from "./pvcStore.js";
 export async function createGame(req, res){
-  const { playerColour = "white" } = req.body;
+  const { playerColour = "white", difficulty = "hard" } = req.body;
   if(playerColour !== "white" && playerColour !== "black"){
     return res.status(400).json({ error: "playerColour must be 'white' or 'black'" });
   }
+  const validDifficulty = difficulty === "easy" ? "easy" : "hard";
   const gameId = uuidv4();
   try{
-    const game = await pvcStore.createGame(gameId, playerColour);
+    const game = await pvcStore.createGame(gameId, playerColour, validDifficulty);
     const engineGoesFirst = game.engineColour === "white";
 
     const response = {
       gameId,
       playerColour,
       engineColour: game.engineColour,
+      difficulty: validDifficulty,
     };
     if(engineGoesFirst && game.engineFirstMove) response.engineFirstMove = game.engineFirstMove;
     return res.status(201).json(response);

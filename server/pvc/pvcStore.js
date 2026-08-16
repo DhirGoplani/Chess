@@ -4,14 +4,15 @@ import { EngineProcess } from "./bridge.js";
 const games = new Map();
 
 export const pvcStore = {
-  async createGame(gameId, playerColour){
+  async createGame(gameId, playerColour, difficulty = "hard"){
     const engineColour = playerColour === "white" ? "black" : "white";
-    const engine = new EngineProcess(gameId, engineColour);
+    const engine = new EngineProcess(gameId, engineColour, difficulty);
 
     const game = {
       engine,
       playerColour,
       engineColour,
+      difficulty,
       engineFirstMove: null,
       status: "active",
       moves: [],

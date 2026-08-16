@@ -1,11 +1,23 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getApiUrl } from "../utils/apiUrl";
+import Logo from "../components/Logo";
+import LoadingScreen from "../components/LoadingScreen";
 
 export default function History() {
   const navigate = useNavigate();
-  const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Instant load from sessionStorage cache if available (0ms delay!)
+  const [games, setGames] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("cached_history");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [loading, setLoading] = useState(() => games.length === 0);
   const [hoveredId, setHoveredId] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   
@@ -19,7 +31,10 @@ export default function History() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        setGames(data.games || []);
+        if (data.games) {
+          setGames(data.games);
+          sessionStorage.setItem("cached_history", JSON.stringify(data.games));
+        }
       } catch (err) {
         console.error("Failed to fetch history:", err);
       } finally {
@@ -50,6 +65,10 @@ export default function History() {
     return "=";
   };
 
+  if (loading && games.length === 0) {
+    return <LoadingScreen message="Fetching match history..." />;
+  }
+
   return (
     <div style={s.root}>
       <GridStyles />
@@ -59,9 +78,8 @@ export default function History() {
 
       {/* NAVBAR */}
       <nav style={s.nav}>
-        <div style={s.navLogo}>
-          <span style={s.logoIcon}>♞</span>
-          <span style={s.logoText}>ChessMate</span>
+        <div style={s.navLogo} className="cursor-pointer" onClick={() => navigate("/home")}>
+          <Logo size={36} />
         </div>
         <div style={s.navRight} className="nav-right-el">
           <button style={s.navBtn} onClick={() => navigate("/home")}>

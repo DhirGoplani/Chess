@@ -4,18 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const engineDir = path.join(__dirname, "../../engine");
+const engineBaseDir = path.join(__dirname, "../../engine");
 const isWindows = process.platform === "win32";
-const outputName = isWindows ? "chess_engine.exe" : "chess_engine";
-const outputPath = path.join(engineDir, outputName);
-
-const sources = [
-  "enginewrapper.cpp",
-  "move.cpp",
-  "evaluate.cpp",
-  "search.cpp",
-  "validmoves.cpp",
-].map((f) => path.join(engineDir, f));
 
 function findCompiler() {
   const candidates = ["g++", "clang++"];
@@ -41,20 +31,41 @@ if (!compiler) {
     "  - Linux: `apt install g++` / `apt install build-essential`\n" +
     "Skipping engine build; PvC games will fail to start until this is resolved.\n"
   );
-  process.exit(0); // don't fail the whole install over this
+  process.exit(0);
 }
 
-try{
-  console.log(`[build-engine] Compiling engine with ${compiler} -> ${outputPath}`);
-  execFileSync(
-    compiler,
-    ["-O2", "-std=c++17", "-o", outputPath, ...sources],
-    { stdio: "inherit" }
-  );
-  console.log("[build-engine] Build succeeded.");
-}catch (err){
-  console.error("[build-engine] Build failed:", err.message);
-  process.exit(0); // still don't hard-fail install
+function compileTarget(subDir, binaryBaseName) {
+  const dirPath = path.join(engineBaseDir, subDir);
+  const outputName = isWindows ? `${binaryBaseName}.exe` : binaryBaseName;
+  const outputPath = path.join(engineBaseDir, outputName);
+
+  const sources = [
+    "enginewrapper.cpp",
+    "move.cpp",
+    "evaluate.cpp",
+    "search.cpp",
+    "validmoves.cpp",
+  ].map((f) => path.join(dirPath, f));
+
+  try {
+    console.log(`[build-engine] Compiling ${subDir} engine with ${compiler} -> ${outputPath}`);
+    execFileSync(
+      compiler,
+      ["-O2", "-std=c++17", "-o", outputPath, ...sources],
+      { stdio: "inherit" }
+    );
+    console.log(`[build-engine] ${subDir} engine build succeeded.`);
+  } catch (err) {
+    console.error(`[build-engine] ${subDir} engine build failed:`, err.message);
+  }
+
+  if (!existsSync(outputPath)) {
+    console.error(`[build-engine] Expected binary not found at ${outputPath}`);
+  }
 }
 
-if(!existsSync(outputPath))  console.error(`[build-engine] Expected binary not found at ${outputPath}`);
+// Build both Easy and Hard engines
+compileTarget("easy", "chess_engine_easy");
+compileTarget("hard", "chess_engine_hard");
+// Build default chess_engine as hard engine fallback
+compileTarget("hard", "chess_engine");

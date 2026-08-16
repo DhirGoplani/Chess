@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import Board from "../components/board";
 import { getApiUrl } from "../utils/apiUrl";
+import Logo from "../components/Logo";
+import LoadingScreen from "../components/LoadingScreen";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -11,11 +13,20 @@ export default function Analysis() {
   const navigate                = useNavigate();
   const token                   = localStorage.getItem("token");
 
-  const [moves, setMoves]       = useState([]);
+  // Instant load from sessionStorage cache if available (0ms delay!)
+  const [moves, setMoves]       = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(`cached_moves_${gameId}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [currentIdx, setCurrentIdx] = useState(-1); // -1 = starting position
   const [chess]                 = useState(new Chess());
   const [, forceUpdate]         = useState(0);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading]   = useState(() => moves.length === 0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [boardSize, setBoardSize] = useState(480);
 
@@ -26,10 +37,13 @@ export default function Analysis() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        setMoves(data.moves || []);
-        setLoading(false);
+        if (data.moves) {
+          setMoves(data.moves);
+          sessionStorage.setItem(`cached_moves_${gameId}`, JSON.stringify(data.moves));
+        }
       } catch (err) {
         console.error("Failed to fetch moves:", err);
+      } finally {
         setLoading(false);
       }
     };
@@ -82,6 +96,10 @@ export default function Analysis() {
     pairedMoves.push([moves[i], moves[i + 1]]);
   }
 
+  if (loading && moves.length === 0) {
+    return <LoadingScreen message="Loading Game Analysis..." />;
+  }
+
   return (
     <div style={s.root}>
       <GlobalStyles />
@@ -96,9 +114,8 @@ export default function Analysis() {
 
       {/* NAVBAR */}
       <nav style={s.nav}>
-        <div style={s.navLogo}>
-          <span style={s.logoIcon}>♛</span>
-          <span style={s.logoText}>ChessMate</span>
+        <div style={s.navLogo} className="cursor-pointer" onClick={() => navigate("/home")}>
+          <Logo size={36} />
         </div>
         <div style={s.navRight} className="nav-right-el">
           <button style={s.navBtn} onClick={() => navigate("/history")}>

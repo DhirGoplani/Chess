@@ -8,33 +8,30 @@ const ENGINE_BINARY = process.platform === "win32" ? "chess_engine.exe" : "chess
 const ENGINE_PATH = path.join(__dirname, "../../engine", ENGINE_BINARY);
 
 export class EngineProcess extends EventEmitter {
-  constructor(gameId, engineColour) {
+  constructor(gameId, engineColour, difficulty = "hard") {
     super();
     this.gameId = gameId;
     this.engineColour = engineColour; // "white" or "black"
+    this.difficulty = difficulty; // "easy" or "hard"
     this.process = null;
     this.buffer = "";
     this.ready = false;
     this._pendingResolve = null;
     this._pendingReject = null;
     this._pendingTimeout = null;
-    // fix: the engine's stdin/stdout protocol only ever has ONE request in
-    // flight at a time — the old code had a single _pendingResolve/
-    // _pendingReject slot with no queue, so two overlapping calls (a retry,
-    // a double submit, any race from elsewhere) could stomp on each other:
-    // the second write would land before the first reply came back, and
-    // whichever promise happened to be "pending" at that moment would
-    // resolve with the wrong line. That's how the engine's internal board
-    // can silently drift from the real game. This promise chain forces
-    // every request (move/sync/go) through one at a time, in order.
+
+    const binaryPrefix = difficulty === "easy" ? "chess_engine_easy" : "chess_engine_hard";
+    const binaryName = process.platform === "win32" ? `${binaryPrefix}.exe` : binaryPrefix;
+    this.enginePath = path.join(__dirname, "../../engine", binaryName);
+
     this._chain = Promise.resolve();
   }
 
   // Spawn the C++ engine and send the init line
   start() {
     return new Promise((resolve, reject) => {
-      this.process = spawn(ENGINE_PATH, [], {
-        stdio: ["pipe", "pipe", "pipe"], // 3 pipes , one for input, one for output, one for error
+      this.process = spawn(this.enginePath, [], {
+        stdio: ["pipe", "pipe", "pipe"],
       });
 
       this.process.on("error", (err) => {

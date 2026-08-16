@@ -5,6 +5,8 @@ import ChallengeModal from "../components/ChallengeModal";
 import ChallengeNotifier from "../components/ChallengeNotifier";
 import { connectSocket } from "../socket/socket";
 
+import Logo from "../components/Logo";
+
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
 const FORMATS = [
@@ -88,9 +90,8 @@ export default function Home() {
 
       {/* NAVBAR */}
 <nav style={s.nav}>
-  <div style={s.navLogo}>
-    <span style={s.logoIcon}>♞</span>
-    <span style={s.logoText}>ChessMate</span>
+  <div style={s.navLogo} className="cursor-pointer" onClick={() => navigate("/home")}>
+    <Logo size={36} />
   </div>
   <div style={s.navRight}>
     <button
@@ -242,7 +243,7 @@ export default function Home() {
         {/* PVC SECTION */}
         <div style={{ ...s.sectionLabel, marginTop: "48px" }}>
           <div style={s.sectionLine} />
-          <span style={s.sectionText}>Player vs Computer</span>
+          <span style={s.sectionText}>Player vs Computer (AI Engine)</span>
           <div style={s.sectionLine} />
         </div>
 
@@ -252,23 +253,26 @@ export default function Home() {
             className="cpu-card-responsive"
             style={{
               ...s.cpuCard,
-              border: hoveredCpu ? "1px solid #c4a35a55" : "1px solid rgba(196,163,90,0.15)",
-              boxShadow: hoveredCpu ? "0 0 0 1px #c4a35a22, 0 24px 60px rgba(0,0,0,0.5)" : "0 8px 32px rgba(0,0,0,0.3)",
+              border: hoveredCpu ? "1px solid #e8a838" : "1px solid rgba(196,163,90,0.25)",
+              boxShadow: hoveredCpu ? "0 0 30px rgba(232,168,56,0.25), 0 24px 60px rgba(0,0,0,0.6)" : "0 8px 32px rgba(0,0,0,0.4)",
               transform: hoveredCpu ? "translateY(-4px)" : "translateY(0)",
-              transition: "all 0.25s ease",
+              transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+              background: "linear-gradient(135deg, rgba(44,26,14,0.95) 0%, rgba(20,12,6,0.98) 100%)",
             }}
             onMouseEnter={() => setHoveredCpu(true)}
             onMouseLeave={() => setHoveredCpu(false)}
           >
             <div style={s.cpuLeft}>
               <div style={s.cpuIconRow}>
-                <span style={s.cpuDiffIcon}>🌱</span>
-                <span style={s.cpuDiffIcon}>⚔️</span>
-                <span style={s.cpuDiffIcon}>👑</span>
+                <span className="text-xl">⚙</span>
               </div>
               <div>
-                <div style={s.cpuTitle}>Challenge the Engine</div>
-                <div style={s.cpuSubtitle}>Choose your difficulty — from beginner to master</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
+                  <div style={s.cpuTitle}>Play vs C++ Chess Engine</div>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: "12px", background: "rgba(129,182,76,0.15)", border: "1px solid rgba(129,182,76,0.3)", color: "#81b64c" }}>🟢 1100 ELO</span>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: "12px", background: "rgba(232,168,56,0.15)", border: "1px solid rgba(232,168,56,0.3)", color: "#e8a838" }}>⚡ 1800 ELO</span>
+                </div>
+                <div style={s.cpuSubtitle}>Practice tactics against Easy AI or test your limits vs 1800 ELO Hard Engine</div>
               </div>
             </div>
             <button
@@ -276,8 +280,10 @@ export default function Home() {
               onClick={handlePlayCpu}
               style={{
                 ...s.cpuPlayBtn,
-                background: hoveredCpu ? "#c4a35a" : "transparent",
-                color: hoveredCpu ? "#0d1f05" : "#c4a35a",
+                background: hoveredCpu ? "linear-gradient(135deg, #e8a838 0%, #c4901f 100%)" : "rgba(232,168,56,0.12)",
+                color: hoveredCpu ? "#0d1f05" : "#e8a838",
+                border: "1px solid rgba(232,168,56,0.4)",
+                boxShadow: hoveredCpu ? "0 4px 20px rgba(232,168,56,0.4)" : "none",
               }}
             >
               Play vs Computer →

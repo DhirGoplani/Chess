@@ -3,7 +3,17 @@ import { getApiUrl } from "../utils/apiUrl";
 
 export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
   const [activeTab, setActiveTab] = useState("friends"); // "friends" | "requests" | "add"
-  const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
+  
+  // Instant load from sessionStorage cache if available (0ms latency!)
+  const [friendsData, setFriendsData] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("cached_friends");
+      return cached ? JSON.parse(cached) : { friends: [], incoming: [], outgoing: [] };
+    } catch {
+      return { friends: [], incoming: [], outgoing: [] };
+    }
+  });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -15,9 +25,11 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
 
   const token = localStorage.getItem("token");
 
-  const fetchFriends = async () => {
+  const fetchFriends = async (silent = false) => {
     if (!token) return;
-    setLoading(true);
+    if (!silent && (!friendsData.friends || friendsData.friends.length === 0)) {
+      setLoading(true);
+    }
     setError("");
     try {
       const res = await fetch(`${getApiUrl()}/api/friends/list`, {
@@ -27,12 +39,13 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
       const data = await res.json();
       if (res.ok) {
         setFriendsData(data);
+        sessionStorage.setItem("cached_friends", JSON.stringify(data));
       } else {
-        setError(data.message || "Failed to load friends");
+        if (!silent) setError(data.message || "Failed to load friends");
       }
     } catch (err) {
       console.error("[fetchFriends error]:", err);
-      setError("Network error fetching friends");
+      if (!silent) setError("Network error fetching friends");
     } finally {
       setLoading(false);
     }
@@ -40,19 +53,18 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
 
   useEffect(() => {
     if (isOpen) {
-      fetchFriends();
+      // If we already have cached data, fetch silently in background for smooth experience!
+      const isCached = friendsData.friends && friendsData.friends.length > 0;
+      fetchFriends(isCached);
     }
   }, [isOpen]);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) return;
+  const performSearch = async (query) => {
+    if (!query || query.length < 2) return;
     setSearchLoading(true);
     try {
       const res = await fetch(
-        `${getApiUrl()}/api/friends/search?username=${encodeURIComponent(
-          searchQuery.trim()
-        )}`,
+        `${getApiUrl()}/api/friends/search?username=${encodeURIComponent(query)}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
@@ -67,6 +79,23 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
     } finally {
       setSearchLoading(false);
     }
+  };
+
+  // Live debounced search as user types!
+  useEffect(() => {
+    if (activeTab !== "add" || searchQuery.trim().length < 2) {
+      if (searchQuery.trim().length === 0) setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      performSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeTab]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    performSearch(searchQuery.trim());
   };
 
   const handleSendRequest = async (receiverId) => {

@@ -3,6 +3,7 @@ import http from "http";
 import { Server } from "socket.io";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import compression from "compression";
 import authRouter from "./auth/authRoutes.js";
 import pvcRouter from "./pvc/pvcRoutes.js";
 import gameRouter from "./game/gameRoutes.js";  
@@ -33,6 +34,7 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
+app.use(compression());
 app.use(express.json());
 app.use(cookieParser());
 

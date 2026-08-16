@@ -56,6 +56,7 @@ export default function PvcGame() {
   const redraw        = useCallback(() => forceUpdate(n => n + 1), []);
 
   const [playerColour,    setPlayerColour]    = useState(state?.playerColour ?? "white");
+  const [difficulty,      setDifficulty]      = useState(state?.difficulty ?? "hard");
   const [engineThinking,  setEngineThinking]  = useState(false);
   const [lastMove,        setLastMove]        = useState(null);
   const [gameOver,        setGameOver]        = useState(null);
@@ -203,9 +204,9 @@ export default function PvcGame() {
         {/* Opponent bar */}
         <div style={m.playerBar}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={m.engineAvatar}>⚙</div>
+            <div style={m.engineAvatar}>{difficulty === "hard" ? "⚡" : "🟢"}</div>
             <div>
-              <div style={m.playerName}>Computer</div>
+              <div style={m.playerName}>{difficulty === "hard" ? "Computer (Hard 1800 ELO)" : "Computer (Easy 1100 ELO)"}</div>
               <div style={m.playerSide}>{state?.engineColour === "white" ? "White" : "Black"}</div>
             </div>
           </div>
@@ -308,9 +309,9 @@ export default function PvcGame() {
           {/* Engine */}
           <div style={d.playerSection}>
             <div style={d.playerRow}>
-              <div style={d.engineAvatar}>⚙</div>
+              <div style={d.engineAvatar}>{difficulty === "hard" ? "⚡" : "🟢"}</div>
               <div style={{ flex: 1 }}>
-                <div style={d.playerName}>Computer</div>
+                <div style={d.playerName}>{difficulty === "hard" ? "Computer (Hard 1800 ELO)" : "Computer (Easy 1100 ELO)"}</div>
                 <div style={d.playerSide}>{state?.engineColour === "white" ? "White" : "Black"}</div>
               </div>
               {engineThinking && <span style={d.thinkingBadge}>thinking…</span>}

@@ -9,6 +9,7 @@ export default function PvcLobby() {
   const navigate = useNavigate();
 
   const [colour, setColour] = useState("white");
+  const [difficulty, setDifficulty] = useState("hard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -27,6 +28,7 @@ export default function PvcLobby() {
         },
         body: JSON.stringify({
           playerColour: colour,
+          difficulty: difficulty,
         }),
       });
 
@@ -41,6 +43,7 @@ export default function PvcLobby() {
         state: {
           playerColour: data.playerColour,
           engineColour: data.engineColour,
+          difficulty: data.difficulty || difficulty,
           engineFirstMove: data.engineFirstMove ?? null,
         },
       });
@@ -110,10 +113,48 @@ export default function PvcLobby() {
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-[rgba(196,163,90,0.15)] mb-6 rounded-full" />
+        <div className="h-px bg-[rgba(196,163,90,0.15)] mb-5 rounded-full" />
 
-        {/* Label */}
-        <div className="text-[0.72rem] font-medium text-[#8a7055] tracking-[0.12em] uppercase mb-3">
+        {/* Difficulty Selection Header */}
+        <div className="text-[0.72rem] font-medium text-[#8a7055] tracking-[0.12em] uppercase mb-2">
+          Engine Difficulty
+        </div>
+
+        {/* Difficulty Options */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <button
+            type="button"
+            onClick={() => setDifficulty("easy")}
+            className={[
+              "relative flex flex-col items-center gap-1 p-3 rounded-[8px] border transition-all text-center",
+              difficulty === "easy"
+                ? "border-[#81b64c] bg-[rgba(129,182,76,0.12)] shadow-[0_0_0_2px_rgba(129,182,76,0.3)]"
+                : "border-[rgba(196,163,90,0.15)] bg-[rgba(0,0,0,0.2)] hover:border-[#81b64c]",
+            ].join(" ")}
+          >
+            <span className="text-lg">🟢</span>
+            <span className="text-[0.88rem] font-semibold text-[#f0e6d3]">Easy AI</span>
+            <span className="text-[0.68rem] text-[#8a7055]">1100 ELO</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDifficulty("hard")}
+            className={[
+              "relative flex flex-col items-center gap-1 p-3 rounded-[8px] border transition-all text-center",
+              difficulty === "hard"
+                ? "border-[#e8a838] bg-[rgba(232,168,56,0.12)] shadow-[0_0_0_2px_rgba(232,168,56,0.3)]"
+                : "border-[rgba(196,163,90,0.15)] bg-[rgba(0,0,0,0.2)] hover:border-[#e8a838]",
+            ].join(" ")}
+          >
+            <span className="text-lg">⚡</span>
+            <span className="text-[0.88rem] font-semibold text-[#e8a838]">Hard AI</span>
+            <span className="text-[0.68rem] text-[#8a7055]">1800 ELO</span>
+          </button>
+        </div>
+
+        {/* Side Selection Label */}
+        <div className="text-[0.72rem] font-medium text-[#8a7055] tracking-[0.12em] uppercase mb-2">
           Choose Your Side
         </div>
 
@@ -145,7 +186,7 @@ export default function PvcLobby() {
                 onClick={() => setColour(value)}
                 aria-pressed={active}
                 className={[
-                  "relative flex flex-col items-center gap-1 px-3 py-5 rounded-[8px] border transition-all duration-200",
+                  "relative flex flex-col items-center gap-1 px-3 py-4 rounded-[8px] border transition-all duration-200",
 
                   active
                     ? "border-[#c4a35a] bg-[rgba(196,163,90,0.08)] shadow-[0_0_0_3px_rgba(196,163,90,0.12)]"
@@ -153,7 +194,7 @@ export default function PvcLobby() {
                 ].join(" ")}
               >
                 <span
-                  className={`text-[2.2rem] leading-none mb-1 ${glyphClass}`}
+                  className={`text-[2rem] leading-none mb-1 ${glyphClass}`}
                   style={{
                     filter:
                       value === "black"
@@ -164,11 +205,11 @@ export default function PvcLobby() {
                   {glyph}
                 </span>
 
-                <span className="text-[0.95rem] font-semibold text-[#f0e6d3]">
+                <span className="text-[0.92rem] font-semibold text-[#f0e6d3]">
                   {label}
                 </span>
 
-                <span className="text-[0.72rem] text-[#8a7055] font-light">
+                <span className="text-[0.7rem] text-[#8a7055] font-light">
                   {hint}
                 </span>
 
@@ -182,25 +223,26 @@ export default function PvcLobby() {
           })}
         </div>
 
-        {/* Engine Box */}
+        {/* Engine Info Box */}
         <div className="flex items-center gap-3 bg-[rgba(0,0,0,0.25)] border border-[rgba(196,163,90,0.08)] rounded-[8px] px-4 py-3 mb-5">
-
           <span className="text-[1.3rem] text-[#e8a838] shrink-0">
-            ⚙
+            {difficulty === "hard" ? "⚡" : "🟢"}
           </span>
 
           <div>
             <div className="text-[0.9rem] font-semibold text-[#f0e6d3]">
-              Chess Engine
+              {difficulty === "hard" ? "ChessMate Hard AI" : "ChessMate Easy AI"}
             </div>
 
             <div className="text-[0.72rem] text-[#8a7055] font-light">
-              Minimax · depth 4
+              {difficulty === "hard"
+                ? "Iterative Deepening + Transposition Table (1800 ELO)"
+                : "Basic Minimax Depth 4 (1100 ELO)"}
             </div>
           </div>
 
           <div className="ml-auto text-[0.65rem] font-semibold tracking-[0.12em] text-[#e8a838] bg-[rgba(232,168,56,0.08)] border border-[rgba(232,168,56,0.2)] rounded-[4px] px-2 py-0.5 uppercase shrink-0">
-            CPU
+            {difficulty === "hard" ? "1800 ELO" : "1100 ELO"}
           </div>
         </div>
 

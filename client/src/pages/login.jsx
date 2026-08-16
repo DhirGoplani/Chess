@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useNavigate } from "react-router-dom";
 import { getApiUrl } from "../utils/apiUrl";
+import Logo from "../components/Logo";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -56,9 +58,8 @@ export default function Login() {
       <div className="vignette" aria-hidden="true" />
 
       {/* Logo top */}
-      <div className="logo" aria-label="Chess app logo">
-        <span className="logo-icon">♞</span>
-        <span className="logo-text">ChessMate</span>
+      <div className="logo mb-6" aria-label="Chess app logo">
+        <Logo size={42} />
       </div>
 
       <div className="card">
