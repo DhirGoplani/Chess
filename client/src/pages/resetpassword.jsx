@@ -31,7 +31,7 @@ export default function ResetPassword() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Something went wrong.");
+        setError(data.message || data.error || "Something went wrong.");
       } else {
         setSuccess(true);
         setTimeout(() => navigate("/"), 2500);

@@ -1,7 +1,13 @@
 import jwt         from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 import GameManager  from '../game/GameManager.js';
 import MatchmakingQueue from '../matchmaking/MatchmakingQueue.js';
 import { sql } from '../utils/connectDB.js';
+import onlineUsers from '../friends/onlineUsers.js';
+
+// challengeId -> { challengerSocketId, challengerId, challengerUsername, targetId, format, timeControl, createdAt }
+const pendingChallenges = new Map();
+const CHALLENGE_TTL = 30000; // auto-expire an unanswered challenge after 30s
 
 const socketHandler = (io) => {
 
@@ -29,9 +35,25 @@ const socketHandler = (io) => {
     MatchmakingQueue.tick(io);
   }, 5000);
 
+  // Sweep expired challenges
+  setInterval(() => {
+    const now = Date.now();
+    for (const [challengeId, ch] of pendingChallenges.entries()) {
+      if (now - ch.createdAt > CHALLENGE_TTL) {
+        io.to(ch.challengerSocketId).emit('challengeExpired', { challengeId });
+        const targetSocketId = onlineUsers.getSocketId(ch.targetId);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('challengeExpired', { challengeId });
+        }
+        pendingChallenges.delete(challengeId);
+      }
+    }
+  }, 5000);
+
   // Connection
   io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id} | User: ${socket.user.username}`);
+    onlineUsers.setOnline(socket.user.id, socket.id);
 
     // ── Find match 
     socket.on('findMatch', async ({ format, timeControl }) => {
@@ -78,6 +100,122 @@ const socketHandler = (io) => {
     socket.on('cancelSearch', () => {
       MatchmakingQueue.removePlayer(socket.id);
       console.log(`[Matchmaking] ${socket.user.username} cancelled search`);
+    });
+
+    // ── Challenge a friend
+    socket.on('challengeFriend', ({ friendId, format, timeControl }) => {
+      if (!['bullet', 'blitz', 'rapid'].includes(format)) {
+        socket.emit('error', { message: 'Invalid format' });
+        return;
+      }
+
+      const friendSocketId = onlineUsers.getSocketId(friendId);
+      if (!friendSocketId) {
+        socket.emit('challengeFailed', { message: 'Friend is not online' });
+        return;
+      }
+
+      const challengeId = uuidv4();
+      pendingChallenges.set(challengeId, {
+        challengerSocketId: socket.id,
+        challengerId:        socket.user.id,
+        challengerUsername:  socket.user.username,
+        targetId:            friendId,
+        format,
+        timeControl,
+        createdAt:           Date.now(),
+      });
+
+      io.to(friendSocketId).emit('challengeReceived', {
+        challengeId,
+        from: { id: socket.user.id, username: socket.user.username },
+        format,
+        timeControl,
+      });
+
+      socket.emit('challengeSent', { challengeId, targetId: friendId });
+    });
+
+    // ── Cancel an outgoing challenge
+    socket.on('cancelChallenge', ({ challengeId }) => {
+      const ch = pendingChallenges.get(challengeId);
+      if (ch && ch.challengerId === socket.user.id) {
+        const targetSocketId = onlineUsers.getSocketId(ch.targetId);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('challengeCancelled', { challengeId });
+        }
+        pendingChallenges.delete(challengeId);
+      }
+    });
+
+    // ── Respond to a challenge (accept/decline)
+    socket.on('respondChallenge', async ({ challengeId, accept }) => {
+      const challenge = pendingChallenges.get(challengeId);
+      if (!challenge) {
+        socket.emit('challengeFailed', { message: 'Challenge no longer valid' });
+        return;
+      }
+      // Only the intended target can respond
+      if (challenge.targetId !== socket.user.id) return;
+
+      pendingChallenges.delete(challengeId);
+
+      if (!accept) {
+        io.to(challenge.challengerSocketId).emit('challengeDeclined', {
+          by: socket.user.username,
+        });
+        return;
+      }
+
+      const ratingCol = `${challenge.format}_rating`;
+
+      // Fetch live ratings for both players, same as findMatch does
+      let challengerRating = 800;
+      let responderRating  = 800;
+      try {
+        const rows = await sql`
+          SELECT id, bullet_rating, blitz_rating, rapid_rating
+          FROM users
+          WHERE id = ${challenge.challengerId} OR id = ${socket.user.id}
+        `;
+        const challengerRow = rows.find(r => r.id === challenge.challengerId);
+        const responderRow  = rows.find(r => r.id === socket.user.id);
+        if (challengerRow?.[ratingCol] != null) challengerRating = challengerRow[ratingCol];
+        if (responderRow?.[ratingCol]  != null) responderRating  = responderRow[ratingCol];
+      } catch (err) {
+        console.error(`[Challenge] rating lookup failed for challenge ${challengeId}:`, err.message);
+        // fall back to 800 defaults above
+      }
+
+      const challengerPlayer = {
+        socketId: challenge.challengerSocketId,
+        userId:   challenge.challengerId,
+        username: challenge.challengerUsername,
+        rating:   challengerRating,
+      };
+      const responderPlayer = {
+        socketId: socket.id,
+        userId:   socket.user.id,
+        username: socket.user.username,
+        rating:   responderRating,
+      };
+
+      const [white, black] = Math.random() > 0.5
+        ? [challengerPlayer, responderPlayer]
+        : [responderPlayer, challengerPlayer];
+
+      const gameId = uuidv4();
+
+      GameManager.createGame(gameId, white, black, challenge.timeControl)
+        .then(() => {
+          MatchmakingQueue._emitMatchFound(io, {
+            gameId,
+            format: challenge.format,
+            timeControl: challenge.timeControl,
+            players: { white, black },
+          });
+        })
+        .catch(err => console.error(`[Challenge] createGame failed for ${gameId}:`, err.message));
     });
 
     // ── Make move
@@ -242,6 +380,10 @@ const socketHandler = (io) => {
     socket.on('disconnect', () => {
       console.log(`Player disconnected: ${socket.user?.username}`);
 
+      if (socket.user?.id) {
+        onlineUsers.setOffline(socket.user.id);
+      }
+
       MatchmakingQueue.removePlayer(socket.id);
 
       const game = GameManager.getGameByPlayer(socket.id);
@@ -264,4 +406,4 @@ const socketHandler = (io) => {
   });
 };
 
-export default socketHandler;
+export default socketHandler;   

@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import FriendsModal from "../components/FriendsModal";
+import ChallengeModal from "../components/ChallengeModal";
+import ChallengeNotifier from "../components/ChallengeNotifier";
+import { connectSocket } from "../socket/socket";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -31,12 +35,15 @@ export default function Home() {
   const [hoveredCard, setHoveredCard]   = useState(null);
   const [hoveredCpu, setHoveredCpu]     = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
+  const [friendsOpen, setFriendsOpen]   = useState(false);
+  const [challengingFriend, setChallengingFriend] = useState(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) { navigate("/"); return; }
     setUser(JSON.parse(stored));
-  }, []);
+    connectSocket();
+  }, [navigate]);
 
   const handlePlay = (format) => {
     localStorage.setItem("selectedFormat", format);
@@ -48,9 +55,29 @@ export default function Home() {
     navigate("/pvc");
   };
 
+  const handleSendChallenge = ({ friendId, format, timeControl }) => {
+    const socket = connectSocket();
+    socket.emit("challengeFriend", { friendId, format, timeControl });
+    setChallengingFriend(null);
+  };
+
   return (
     <div style={s.root}>
       <GridStyles />
+      <ChallengeNotifier />
+
+      <FriendsModal
+        isOpen={friendsOpen}
+        onClose={() => setFriendsOpen(false)}
+        onChallengeFriend={(friend) => setChallengingFriend(friend)}
+      />
+
+      <ChallengeModal
+        friend={challengingFriend}
+        onClose={() => setChallengingFriend(null)}
+        onSendChallenge={handleSendChallenge}
+      />
+
       <div style={s.boardBg}>
         {SQUARES.map((i) => {
           const row = Math.floor(i / 8), col = i % 8;
@@ -66,6 +93,12 @@ export default function Home() {
     <span style={s.logoText}>ChessMate</span>
   </div>
   <div style={s.navRight}>
+    <button
+      onClick={() => setFriendsOpen(true)}
+      style={{ padding:"7px 16px", background:"rgba(196,163,90,0.12)", border:"1px solid rgba(196,163,90,0.3)", borderRadius:"4px", color:"#c4a35a", fontSize:"0.82rem", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}
+    >
+      <span>👥</span> Friends
+    </button>
     <button
       onClick={() => navigate("/history")}
       style={{ padding:"7px 16px", background:"transparent", border:"1px solid rgba(196,163,90,0.25)", borderRadius:"4px", color:"#c4a882", fontSize:"0.82rem", cursor:"pointer" }}
@@ -88,6 +121,12 @@ export default function Home() {
       {menuOpen && (
         <div style={s.mobileMenu}>
           <div style={s.mobileUser}>♟ {user.username}</div>
+          <button
+            onClick={() => { setMenuOpen(false); setFriendsOpen(true); }}
+            style={{ padding:"6px 14px", background:"rgba(196,163,90,0.15)", border:"1px solid #c4a35a", borderRadius:"4px", color:"#c4a35a", fontSize:"0.82rem", fontWeight:600, cursor:"pointer" }}
+          >
+            👥 Friends
+          </button>
           <button style={s.mobileLogout} onClick={() => { localStorage.clear(); navigate("/"); }}>
             Sign Out
           </button>
