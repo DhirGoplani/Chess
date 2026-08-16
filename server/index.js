@@ -30,7 +30,8 @@ const corsOriginDelegate = (origin, callback) => {
 app.use(cors({
   origin: corsOriginDelegate,
   credentials: true,         
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 app.use(express.json());
 app.use(cookieParser());
@@ -38,7 +39,8 @@ app.use(cookieParser());
 const io = new Server(server, {
   cors: {
     origin: corsOriginDelegate,
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }
 });

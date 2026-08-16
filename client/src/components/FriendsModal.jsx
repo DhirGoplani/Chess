@@ -22,6 +22,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
     try {
       const res = await fetch(`${getApiUrl()}/api/friends/list`, {
         headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
       const data = await res.json();
       if (res.ok) {
@@ -29,7 +30,8 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
       } else {
         setError(data.message || "Failed to load friends");
       }
-    } catch {
+    } catch (err) {
+      console.error("[fetchFriends error]:", err);
       setError("Network error fetching friends");
     } finally {
       setLoading(false);
@@ -51,7 +53,10 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
         `${getApiUrl()}/api/friends/search?username=${encodeURIComponent(
           searchQuery.trim()
         )}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        }
       );
       const data = await res.json();
       if (res.ok) {
@@ -72,6 +77,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
         body: JSON.stringify({ receiverId }),
       });
       const data = await res.json();
@@ -81,7 +87,8 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
       } else {
         alert(data.message || "Could not send friend request");
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("Error sending friend request");
     }
   };
@@ -94,6 +101,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
         body: JSON.stringify({ requestId, accept }),
       });
       if (res.ok) {
@@ -110,6 +118,7 @@ export default function FriendsModal({ isOpen, onClose, onChallengeFriend }) {
       const res = await fetch(`${getApiUrl()}/api/friends/${friendId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
       if (res.ok) {
         fetchFriends();
