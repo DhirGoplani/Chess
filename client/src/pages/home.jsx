@@ -89,48 +89,83 @@ export default function Home() {
       <div style={s.vignette} />
 
       {/* NAVBAR */}
-<nav style={s.nav}>
-  <div style={s.navLogo} className="cursor-pointer" onClick={() => navigate("/home")}>
-    <Logo size={36} />
-  </div>
-  <div style={s.navRight}>
-    <button
-      onClick={() => setFriendsOpen(true)}
-      style={{ padding:"7px 16px", background:"rgba(196,163,90,0.12)", border:"1px solid rgba(196,163,90,0.3)", borderRadius:"4px", color:"#c4a35a", fontSize:"0.82rem", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}
-    >
-      <span>👥</span> Friends
-    </button>
-    <button
-      onClick={() => navigate("/history")}
-      style={{ padding:"7px 16px", background:"transparent", border:"1px solid rgba(196,163,90,0.25)", borderRadius:"4px", color:"#c4a882", fontSize:"0.82rem", cursor:"pointer" }}
-    >
-      History
-    </button>
-    <div style={s.navUserPill}>
-      <span style={s.navUserIcon}>♟</span>
-      <span style={s.navUsername}>{user.username}</span>
-    </div>
-    <button style={s.logoutBtn} onClick={() => { localStorage.clear(); navigate("/"); }}>
-      Sign Out
-    </button>
-  </div>
-  <button style={s.hamburger} onClick={() => setMenuOpen(v => !v)}>
-    {menuOpen ? "✕" : "☰"}
-  </button>
-</nav>
+      <nav style={s.nav} className="w-full overflow-hidden">
+        <div style={s.navLogo} className="cursor-pointer shrink-0" onClick={() => navigate("/home")}>
+          <Logo size={32} />
+        </div>
 
-      {menuOpen && (
-        <div style={s.mobileMenu}>
-          <div style={s.mobileUser}>♟ {user.username}</div>
+        {/* Desktop Nav Items (1024px+ wide screens) */}
+        <div style={s.navRight} className="hidden lg:flex items-center gap-2.5 shrink-0">
           <button
-            onClick={() => { setMenuOpen(false); setFriendsOpen(true); }}
-            style={{ padding:"6px 14px", background:"rgba(196,163,90,0.15)", border:"1px solid #c4a35a", borderRadius:"4px", color:"#c4a35a", fontSize:"0.82rem", fontWeight:600, cursor:"pointer" }}
+            onClick={() => setFriendsOpen(true)}
+            className="px-3 py-1.5 bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.3)] rounded-lg text-[#c4a35a] text-xs font-semibold hover:bg-[rgba(196,163,90,0.22)] transition-all flex items-center gap-1.5 shrink-0"
           >
-            👥 Friends
+            <span>👥</span> Friends
           </button>
-          <button style={s.mobileLogout} onClick={() => { localStorage.clear(); navigate("/"); }}>
+          <button
+            onClick={() => navigate("/history")}
+            className="px-3 py-1.5 bg-transparent border border-[rgba(196,163,90,0.25)] rounded-lg text-[#c4a882] text-xs font-medium hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0"
+          >
+            History
+          </button>
+          <div style={s.navUserPill} className="shrink-0">
+            <span style={s.navUserIcon}>♟</span>
+            <span style={s.navUsername}>{user.username}</span>
+          </div>
+          <button
+            style={s.logoutBtn}
+            onClick={() => { localStorage.clear(); navigate("/"); }}
+            className="hover:text-[#e53935] hover:border-[rgba(229,57,53,0.4)] transition-colors shrink-0 whitespace-nowrap"
+          >
             Sign Out
           </button>
+        </div>
+
+        {/* Mobile / Tablet Hamburger Button (<1024px) */}
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.25)] text-[#e8a838] text-lg transition-all active:scale-95 shrink-0"
+          aria-label="Toggle navigation menu"
+        >
+          {menuOpen ? "✕" : "☰"}
+        </button>
+      </nav>
+
+      {/* Mobile Drawer Dropdown */}
+      {menuOpen && (
+        <div className="lg:hidden relative z-30 bg-[rgba(26,14,7,0.96)] border-b border-[rgba(196,163,90,0.2)] px-6 py-5 backdrop-blur-xl animate-[slideDown_0.25s_ease-out_both] shadow-[0_16px_40px_rgba(0,0,0,0.8)]">
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-[rgba(196,163,90,0.12)]">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg text-[#c4a35a]">♟</span>
+              <span className="text-sm font-semibold text-[#f0e6d3]">{user.username}</span>
+            </div>
+            <span className="text-xs text-[#8a7055] font-light">Online</span>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={() => { setMenuOpen(false); setFriendsOpen(true); }}
+              className="w-full py-3 px-4 rounded-lg bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.3)] text-[#e8a838] text-sm font-semibold flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2"><span>👥</span> Friends</span>
+              <span className="text-xs text-[#8a7055]">→</span>
+            </button>
+
+            <button
+              onClick={() => { setMenuOpen(false); navigate("/history"); }}
+              className="w-full py-3 px-4 rounded-lg bg-[rgba(0,0,0,0.25)] border border-[rgba(196,163,90,0.15)] text-[#c4a882] text-sm font-medium flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2"><span>📜</span> Match History</span>
+              <span className="text-xs text-[#8a7055]">→</span>
+            </button>
+
+            <button
+              onClick={() => { localStorage.clear(); navigate("/"); }}
+              className="w-full py-2.5 px-4 rounded-lg bg-[rgba(180,60,60,0.12)] border border-[rgba(180,60,60,0.25)] text-[#e53935] text-xs font-semibold flex items-center justify-center gap-2 mt-2"
+            >
+              <span>🚪</span> Sign Out
+            </button>
+          </div>
         </div>
       )}
 
@@ -297,6 +332,7 @@ export default function Home() {
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
 
         @media (max-width: 860px) {
           .format-grid-inner { grid-template-columns: 1fr 1fr !important; }
@@ -309,11 +345,11 @@ export default function Home() {
           .cpu-card-inner    { flex-direction: column !important; align-items: flex-start !important; gap: 16px !important; }
           .cpu-play-btn-el   { width: 100% !important; }
         }
-        @media (min-width: 601px) {
+        @media (min-width: 769px) {
           .hamburger-el  { display: none !important; }
           .mobile-menu-el { display: none !important; }
         }
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
           .nav-right-el { display: none !important; }
           .hamburger-el { display: flex !important; }
         }
@@ -332,7 +368,7 @@ const s = {
   navLogo: { display: "flex", alignItems: "center", gap: "8px" },
   logoIcon: { fontSize: "1.5rem", color: "#81b64c", filter: "drop-shadow(0 0 8px rgba(129,182,76,0.5))" },
   logoText: { fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", fontWeight: 700, color: "#f0e6d3" },
-  navRight: { display: "flex", alignItems: "center", gap: "12px", className: "nav-right-el" },
+  navRight: { alignItems: "center", gap: "10px" },
   navUserPill: { display: "flex", alignItems: "center", gap: "7px", background: "rgba(196,163,90,0.1)", border: "1px solid rgba(196,163,90,0.2)", borderRadius: "20px", padding: "6px 14px" },
   navUserIcon: { fontSize: "0.9rem", color: "#c4a35a" },
   navUsername: { fontSize: "0.85rem", color: "#c4a882", fontWeight: 500 },
