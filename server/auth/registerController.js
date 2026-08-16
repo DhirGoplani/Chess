@@ -10,25 +10,28 @@ const COOKIE_OPTIONS = {
 };
 
 export const register = async (req, res) => {
-  try{
-    const {name, username, email, password} = req.body;
-    if(!name || !username || !email || !password){
+  try {
+    const { name, username, email, password } = req.body;
+    if (!name || !username || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
-    if(!/^[a-z0-9_.]+$/.test(username)){
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!/^[a-z0-9_.]+$/.test(cleanUsername)) {
       return res.status(400).json({ message: "Username can only contain lowercase letters, numbers, underscores, and periods" });
     }
     const existingUser = await sql`
       SELECT id FROM users
-      WHERE email = ${email} OR username = ${username}
+      WHERE LOWER(email) = ${cleanEmail} OR LOWER(username) = ${cleanUsername}
     `;
-    if(existingUser.length > 0){
+    if (existingUser.length > 0) {
       return res.status(409).json({ message: "Email or username already exists" });
     }
-    const hashedPassword = await bcrypt.hash(password, 9);
+    const hashedPassword = await bcrypt.hash(password, 8);
     const newUser = await sql`
       INSERT INTO users (name, username, email, password)
-      VALUES (${name}, ${username}, ${email}, ${hashedPassword})
+      VALUES (${name.trim()}, ${cleanUsername}, ${cleanEmail}, ${hashedPassword})
       RETURNING id, name, username, email, bullet_rating, blitz_rating, rapid_rating, created_at
     `;
 const token = jwt.sign(

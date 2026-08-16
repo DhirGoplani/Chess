@@ -10,29 +10,30 @@ const COOKIE_OPTIONS = {
 };
 
 export const login = async (req, res) => {
-  try{
+  try {
     const { email, username, password } = req.body;
-    if((!email && !username) || !password) {
+    if ((!email && !username) || !password) {
       return res.status(400).json({ message: "Email/username and password are required" });
     }
     let user;
-    if(email){
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
       user = await sql`
         SELECT id, name, username, email, password,
                bullet_rating, blitz_rating, rapid_rating, created_at
         FROM users
-        WHERE email = ${email}
+        WHERE LOWER(email) = ${cleanEmail}
       `;
-    }
-    else {
+    } else {
+      const cleanUsername = username.trim().toLowerCase();
       user = await sql`
         SELECT id, name, username, email, password,
                bullet_rating, blitz_rating, rapid_rating, created_at
         FROM users
-        WHERE username = ${username}
+        WHERE LOWER(username) = ${cleanUsername}
       `;
     }
-    if (user.length === 0) return res.status(401).json({ message: "Invalid email or password" });
+    if (user.length === 0) return res.status(401).json({ message: "Invalid email/username or password" });
     const existingUser = user[0];
     const isMatch = await bcrypt.compare(password, existingUser.password);
     if (!isMatch) {
