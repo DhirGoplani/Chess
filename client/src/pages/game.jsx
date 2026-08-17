@@ -66,8 +66,15 @@ export default function Game() {
       chess.load(board);
       setLastMove({ from, to });
       setMoveHistory(mh || []);
-      setDrawOffer(null); // any move made voids a pending offer
-       if(chess.isCheck()) {
+      setDrawOffer(null);
+      const lastSan = mh?.[mh.length - 1] || "";
+      if (lastSan.includes("x")) {
+        new Audio("/capture.mp3").play().catch(() => {});
+      }
+      else {
+        new Audio("/move-self.mp3").play().catch(() => {});
+      }
+      if (chess.isCheck()) {
         new Audio("/fahh.mp3").play().catch(() => {});
       }
       forceUpdate((n) => n + 1);
@@ -77,6 +84,11 @@ export default function Game() {
       setGameStatus("over");
       setResult({ winner, reason: status });
       setDrawOffer(null);
+      if (winner === playerColour) {
+        new Audio("/yippee.mp3").play().catch(() => {});
+      } else if (winner !== "draw") {
+        new Audio("/oh_hell_no_man.mp3").play().catch(() => {});
+      }
     });
 
     // Opponent has offered a draw — show accept/decline prompt
@@ -89,7 +101,14 @@ export default function Game() {
     socket.on("drawOfferRejected", () => setDrawOffer(null));
 
     // Opponent declined my offer (or I declined theirs) — reset for both
-    socket.on("drawDeclined", () => setDrawOffer(null));
+    socket.on("drawDeclined", () => {
+      setDrawOffer((prev) => {
+        if (prev === "sent") {
+          new Audio("/nope_meme.mp3").play().catch(() => {});
+        }
+    return null;
+  });
+});
 
     socket.on("opponentLeft", () => {
       setGameStatus("over");
