@@ -67,6 +67,9 @@ export default function Game() {
       setLastMove({ from, to });
       setMoveHistory(mh || []);
       setDrawOffer(null); // any move made voids a pending offer
+       if(chess.isCheck()) {
+        new Audio("/fahh.mp3").play().catch(() => {});
+      }
       forceUpdate((n) => n + 1);
     });
 
