@@ -80,16 +80,16 @@ export default function Game() {
       forceUpdate((n) => n + 1);
     });
 
-    socket.on("gameOver", ({ status, winner }) => {
-      setGameStatus("over");
-      setResult({ winner, reason: status });
-      setDrawOffer(null);
-      if (winner === playerColour) {
-        new Audio("/yippee.mp3").play().catch(() => {});
-      } else if (winner !== "draw") {
-        new Audio("/oh_hell_no_man.mp3").play().catch(() => {});
-      }
-    });
+socket.on("gameOver", ({ status, winner }) => {
+  setGameStatus("over");
+  setResult({ winner, reason: status });
+  setDrawOffer(null);
+  if (winner === colour) {
+    new Audio("/yippee.mp3").play().catch(() => {});
+  } else if (winner !== "draw") {
+    new Audio("/oh_hell_no_man.mp3").play().catch(() => {});
+  }
+});
 
     // Opponent has offered a draw — show accept/decline prompt
     socket.on("drawOffered", () => setDrawOffer("received"));
