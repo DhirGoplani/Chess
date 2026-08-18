@@ -108,6 +108,17 @@ export default function PvcGame() {
     setCapturedByEngine(expand(counts[playerSide]));
   }
 
+  function playMoveSound(move, chess) {
+    if (move?.captured) {
+      new Audio("/capture.mp3").play().catch(() => {});
+    } else {
+      new Audio("/move-self.mp3").play().catch(() => {});
+    }
+    if (chess.isCheck()) {
+      new Audio("/fahh.mp3").play().catch(() => {});
+    }
+  }
+
   async function handleMove(from, to, promotion) {
     const chess = chessRef.current;
     const move = chess.move({ from, to, promotion: promotion ?? undefined });
@@ -116,6 +127,7 @@ export default function PvcGame() {
     setMoveCount(n => n + 1);
     setMoveHistory(h => [...h, move.san]);
     syncCaptures(chess);
+    playMoveSound(move, chess);
     redraw();
     if (chess.isGameOver()) { setGameOver(buildLocalGameOver(chess, "player")); return; }
     setEngineThinking(true);
@@ -133,6 +145,7 @@ export default function PvcGame() {
         setMoveCount(n => n + 1);
         if (mv) setMoveHistory(h => [...h, mv.san]);
         syncCaptures(chess);
+        if (mv) playMoveSound(mv, chess);
         redraw();
       }
       if (data.gameOver) setGameOver(resultLabel(data.reason, data.winner, playerColour));
