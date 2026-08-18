@@ -97,19 +97,21 @@ export default function Home() {
         {/* Desktop Nav Items (1024px+ wide screens) */}
         <div style={s.navRight} className="hidden lg:flex items-center gap-2.5 shrink-0">
           <button
+            style={s.navBtnFriends}
             onClick={() => setFriendsOpen(true)}
-            className="px-3 py-1.5 bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.3)] rounded-lg text-[#c4a35a] text-xs font-semibold hover:bg-[rgba(196,163,90,0.22)] transition-all flex items-center gap-1.5 shrink-0"
+            className="hover:brightness-125 transition-all shrink-0 whitespace-nowrap"
           >
-            <span>👥</span> Friends
+            <span style={s.navBtnIcon}>♟</span> Friends
           </button>
           <button
+            style={s.navBtn}
             onClick={() => navigate("/history")}
-            className="px-3 py-1.5 bg-transparent border border-[rgba(196,163,90,0.25)] rounded-lg text-[#c4a882] text-xs font-medium hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0"
+            className="hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0 whitespace-nowrap"
           >
             History
           </button>
           <div style={s.navUserPill} className="shrink-0">
-            <span style={s.navUserIcon}>♟</span>
+            <span style={s.navUserIcon}>♞</span>
             <span style={s.navUsername}>{user.username}</span>
           </div>
           <button
@@ -369,7 +371,10 @@ const s = {
   logoIcon: { fontSize: "1.5rem", color: "#81b64c", filter: "drop-shadow(0 0 8px rgba(129,182,76,0.5))" },
   logoText: { fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", fontWeight: 700, color: "#f0e6d3" },
   navRight: { alignItems: "center", gap: "10px" },
-  navUserPill: { display: "flex", alignItems: "center", gap: "7px", background: "rgba(196,163,90,0.1)", border: "1px solid rgba(196,163,90,0.2)", borderRadius: "20px", padding: "6px 14px" },
+  navBtn: { padding: "7px 16px", background: "transparent", border: "1px solid rgba(196,163,90,0.25)", borderRadius: "6px", color: "#c4a882", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer" },
+  navBtnFriends: { padding: "7px 16px", background: "rgba(196,163,90,0.12)", border: "1px solid rgba(196,163,90,0.3)", borderRadius: "6px", color: "#c4a35a", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" },
+  navBtnIcon: { fontSize: "0.85rem" },
+  navUserPill: { display: "flex", alignItems: "center", gap: "7px", background: "rgba(196,163,90,0.1)", border: "1px solid rgba(196,163,90,0.2)", borderRadius: "6px", padding: "7px 14px" },
   navUserIcon: { fontSize: "0.9rem", color: "#c4a35a" },
   navUsername: { fontSize: "0.85rem", color: "#c4a882", fontWeight: 500 },
   logoutBtn: { padding: "7px 16px", background: "transparent", border: "1px solid rgba(196,163,90,0.25)", borderRadius: "4px", color: "#8a7055", fontSize: "0.82rem", cursor: "pointer" },
