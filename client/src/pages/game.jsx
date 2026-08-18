@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import Board from "../components/board";
 import { connectSocket } from "../socket/socket";
+import { playSound, playMoveSound } from "../utils/sound";
 
 const formatTime = (ms) => {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -68,15 +69,11 @@ export default function Game() {
       setMoveHistory(mh || []);
       setDrawOffer(null);
       const lastSan = mh?.[mh.length - 1] || "";
-      if (lastSan.includes("x")) {
-        new Audio("/capture.mp3").play().catch(() => {});
-      }
-      else {
-        new Audio("/move-self.mp3").play().catch(() => {});
-      }
-      if (chess.isCheck()) {
-        new Audio("/fahh.mp3").play().catch(() => {});
-      }
+      playMoveSound({
+        isCheckmate: chess.isCheckmate(),
+        isCheck: chess.isCheck(),
+        isCapture: lastSan.includes("x"),
+      });
       forceUpdate((n) => n + 1);
     });
 
@@ -85,9 +82,9 @@ socket.on("gameOver", ({ status, winner }) => {
   setResult({ winner, reason: status });
   setDrawOffer(null);
   if (winner === colour) {
-    new Audio("/yippee.mp3").play().catch(() => {});
+    playSound("win");
   } else if (winner !== "draw") {
-    new Audio("/oh_hell_no_man.mp3").play().catch(() => {});
+    playSound("loss");
   }
 });
 
@@ -104,7 +101,7 @@ socket.on("gameOver", ({ status, winner }) => {
     socket.on("drawDeclined", () => {
       setDrawOffer((prev) => {
         if (prev === "sent") {
-          new Audio("/nope_meme.mp3").play().catch(() => {});
+          playSound("drawDeclined");
         }
     return null;
   });

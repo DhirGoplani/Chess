@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FriendsModal from "../components/FriendsModal";
+import SettingsModal from "../components/SettingsModal";
 import ChallengeModal from "../components/ChallengeModal";
 import ChallengeNotifier from "../components/ChallengeNotifier";
 import { connectSocket } from "../socket/socket";
@@ -38,6 +39,7 @@ export default function Home() {
   const [hoveredCpu, setHoveredCpu]     = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
   const [friendsOpen, setFriendsOpen]   = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [challengingFriend, setChallengingFriend] = useState(null);
 
   useEffect(() => {
@@ -72,6 +74,11 @@ export default function Home() {
         isOpen={friendsOpen}
         onClose={() => setFriendsOpen(false)}
         onChallengeFriend={(friend) => setChallengingFriend(friend)}
+      />
+
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
       />
 
       <ChallengeModal
@@ -109,6 +116,14 @@ export default function Home() {
             className="hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0 whitespace-nowrap"
           >
             History
+          </button>
+          <button
+            style={s.navBtn}
+            onClick={() => setSettingsOpen(true)}
+            className="hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0 whitespace-nowrap"
+            aria-label="Settings"
+          >
+            ⚙️
           </button>
           <div style={s.navUserPill} className="shrink-0">
             <span style={s.navUserIcon}>♞</span>
@@ -158,6 +173,14 @@ export default function Home() {
               className="w-full py-3 px-4 rounded-lg bg-[rgba(0,0,0,0.25)] border border-[rgba(196,163,90,0.15)] text-[#c4a882] text-sm font-medium flex items-center justify-between"
             >
               <span className="flex items-center gap-2"><span>📜</span> Match History</span>
+              <span className="text-xs text-[#8a7055]">→</span>
+            </button>
+
+            <button
+              onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}
+              className="w-full py-3 px-4 rounded-lg bg-[rgba(0,0,0,0.25)] border border-[rgba(196,163,90,0.15)] text-[#c4a882] text-sm font-medium flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2"><span>⚙️</span> Settings</span>
               <span className="text-xs text-[#8a7055]">→</span>
             </button>
 
