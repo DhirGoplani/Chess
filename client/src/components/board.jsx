@@ -196,9 +196,9 @@ export default function Board({
         width: "100%",
         maxWidth: size ? `${size}px` : "512px",
         aspectRatio: "1 / 1",
-        borderRadius: "4px",
+        borderRadius: "6px",
         overflow: "hidden",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3)",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.8), 0 0 0 4px #2c1a0e, 0 0 0 5px rgba(196,163,90,0.35)",
         flexShrink: 0,
       }}
     >

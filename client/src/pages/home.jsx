@@ -4,9 +4,12 @@ import FriendsModal from "../components/FriendsModal";
 import SettingsModal from "../components/SettingsModal";
 import ChallengeModal from "../components/ChallengeModal";
 import ChallengeNotifier from "../components/ChallengeNotifier";
+import ProfileModal from "../components/ProfileModal";
 import { connectSocket } from "../socket/socket";
 
 import Logo from "../components/Logo";
+import { IconUsers, IconHistory, IconUser, IconLogOut, IconCpu, IconZap } from "../components/Icons";
+import { showToast } from "../utils/toast";
 
 const SQUARES = Array.from({ length: 64 }, (_, i) => i);
 
@@ -40,6 +43,7 @@ export default function Home() {
   const [menuOpen, setMenuOpen]         = useState(false);
   const [friendsOpen, setFriendsOpen]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen]   = useState(false);
   const [challengingFriend, setChallengingFriend] = useState(null);
 
   useEffect(() => {
@@ -105,36 +109,33 @@ export default function Home() {
         <div style={s.navRight} className="hidden lg:flex items-center gap-2.5 shrink-0">
           <button
             style={s.navBtnFriends}
-            onClick={() => setFriendsOpen(true)}
-            className="hover:brightness-125 transition-all shrink-0 whitespace-nowrap"
+            onClick={() => navigate("/friends")}
+            className="hover:brightness-125 transition-all shrink-0 whitespace-nowrap flex items-center gap-1.5"
           >
-            <span style={s.navBtnIcon}>♟</span> Friends
+            <IconUsers size={15} /> Friends
           </button>
           <button
             style={s.navBtn}
             onClick={() => navigate("/history")}
-            className="hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0 whitespace-nowrap"
+            className="hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0 whitespace-nowrap flex items-center gap-1.5"
           >
-            History
+            <IconHistory size={15} /> History
           </button>
-          <button
-            style={s.navBtn}
-            onClick={() => setSettingsOpen(true)}
-            className="hover:border-[#c4a35a] hover:text-[#f0e6d3] transition-all shrink-0 whitespace-nowrap"
-            aria-label="Settings"
+          <div
+            style={s.navUserPill}
+            onClick={() => navigate("/profile")}
+            className="shrink-0 flex items-center gap-1.5 cursor-pointer hover:brightness-125 hover:border-[rgba(196,163,90,0.5)] transition-all select-none"
+            title="View Full Profile Page"
           >
-            ⚙️
-          </button>
-          <div style={s.navUserPill} className="shrink-0">
-            <span style={s.navUserIcon}>♞</span>
+            <IconUser size={15} className="text-[#c4a35a]" />
             <span style={s.navUsername}>{user.username}</span>
           </div>
           <button
             style={s.logoutBtn}
-            onClick={() => { localStorage.clear(); navigate("/"); }}
-            className="hover:text-[#e53935] hover:border-[rgba(229,57,53,0.4)] transition-colors shrink-0 whitespace-nowrap"
+            onClick={() => { localStorage.clear(); navigate("/"); showToast("Signed out", "info"); }}
+            className="hover:text-[#e53935] hover:border-[rgba(229,57,53,0.4)] transition-colors shrink-0 whitespace-nowrap flex items-center gap-1.5"
           >
-            Sign Out
+            <IconLogOut size={15} /> Sign Out
           </button>
         </div>
 
@@ -151,20 +152,23 @@ export default function Home() {
       {/* Mobile Drawer Dropdown */}
       {menuOpen && (
         <div className="lg:hidden relative z-30 bg-[rgba(26,14,7,0.96)] border-b border-[rgba(196,163,90,0.2)] px-6 py-5 backdrop-blur-xl animate-[slideDown_0.25s_ease-out_both] shadow-[0_16px_40px_rgba(0,0,0,0.8)]">
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-[rgba(196,163,90,0.12)]">
+          <div
+            onClick={() => { setMenuOpen(false); navigate("/profile"); }}
+            className="flex items-center justify-between pb-4 mb-4 border-b border-[rgba(196,163,90,0.12)] cursor-pointer hover:brightness-125"
+          >
             <div className="flex items-center gap-2.5">
-              <span className="text-lg text-[#c4a35a]">♟</span>
+              <IconUser size={18} className="text-[#c4a35a]" />
               <span className="text-sm font-semibold text-[#f0e6d3]">{user.username}</span>
             </div>
-            <span className="text-xs text-[#8a7055] font-light">Online</span>
+            <span className="text-xs text-[#8a7055] font-light">View Full Profile →</span>
           </div>
 
           <div className="flex flex-col gap-2.5">
             <button
-              onClick={() => { setMenuOpen(false); setFriendsOpen(true); }}
+              onClick={() => { setMenuOpen(false); navigate("/friends"); }}
               className="w-full py-3 px-4 rounded-lg bg-[rgba(196,163,90,0.12)] border border-[rgba(196,163,90,0.3)] text-[#e8a838] text-sm font-semibold flex items-center justify-between"
             >
-              <span className="flex items-center gap-2"><span>👥</span> Friends</span>
+              <span className="flex items-center gap-2"><IconUsers size={16} /> Friends</span>
               <span className="text-xs text-[#8a7055]">→</span>
             </button>
 
@@ -172,23 +176,15 @@ export default function Home() {
               onClick={() => { setMenuOpen(false); navigate("/history"); }}
               className="w-full py-3 px-4 rounded-lg bg-[rgba(0,0,0,0.25)] border border-[rgba(196,163,90,0.15)] text-[#c4a882] text-sm font-medium flex items-center justify-between"
             >
-              <span className="flex items-center gap-2"><span>📜</span> Match History</span>
+              <span className="flex items-center gap-2"><IconHistory size={16} /> Match History</span>
               <span className="text-xs text-[#8a7055]">→</span>
             </button>
 
             <button
-              onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}
-              className="w-full py-3 px-4 rounded-lg bg-[rgba(0,0,0,0.25)] border border-[rgba(196,163,90,0.15)] text-[#c4a882] text-sm font-medium flex items-center justify-between"
-            >
-              <span className="flex items-center gap-2"><span>⚙️</span> Settings</span>
-              <span className="text-xs text-[#8a7055]">→</span>
-            </button>
-
-            <button
-              onClick={() => { localStorage.clear(); navigate("/"); }}
+              onClick={() => { localStorage.clear(); navigate("/"); showToast("Signed out", "info"); }}
               className="w-full py-2.5 px-4 rounded-lg bg-[rgba(180,60,60,0.12)] border border-[rgba(180,60,60,0.25)] text-[#e53935] text-xs font-semibold flex items-center justify-center gap-2 mt-2"
             >
-              <span>🚪</span> Sign Out
+              <IconLogOut size={16} /> Sign Out
             </button>
           </div>
         </div>
@@ -352,6 +348,13 @@ export default function Home() {
         </div>
 
       </div>
+
+      <ProfileModal
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={user}
+        onNavigateHistory={() => navigate("/history")}
+      />
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');

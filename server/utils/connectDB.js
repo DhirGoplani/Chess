@@ -9,9 +9,21 @@ neonConfig.webSocketConstructor = ws;
 const pool = new Pool({
   connectionString: process.env.NEON_URL,
   max: 20,
-  idleTimeoutMillis: 30000,
+  idleTimeoutMillis: 60000,
   connectionTimeoutMillis: 5000,
 });
+
+// Create database performance indexes on startup for instant login/search lookups
+(async () => {
+  try {
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_lower_email ON users (LOWER(email));
+      CREATE INDEX IF NOT EXISTS idx_users_lower_username ON users (LOWER(username));
+    `);
+  } catch (err) {
+    // Non-critical background index creation check
+  }
+})();
 
 export const sql = async (strings, ...values) => {
   if (typeof strings === "string") {

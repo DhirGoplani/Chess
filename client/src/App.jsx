@@ -10,9 +10,14 @@ import ForgotPassword from './pages/forgotpassword'
 import ResetPassword from './pages/resetpassword'
 import History  from './pages/history'
 import Analysis from './pages/analysis'
+import Profile from './pages/profile'
+import Friends from './pages/friends'
+import ToastContainer from './components/ToastContainer'
+
 function App() {
   return (
     <BrowserRouter>
+      <ToastContainer />
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -25,6 +30,8 @@ function App() {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/history"           element={<History />} />
         <Route path="/analysis/:gameId"  element={<Analysis />} />
+        <Route path="/profile"           element={<Profile />} />
+        <Route path="/friends"           element={<Friends />} />
       </Routes>
     </BrowserRouter>
   )

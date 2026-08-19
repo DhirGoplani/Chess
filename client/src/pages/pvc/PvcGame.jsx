@@ -5,6 +5,10 @@ import Board from "../../components/board";
 import { getApiUrl } from "../../utils/apiUrl";
 import { playSound, playMoveSound } from "../../utils/sound";
 
+import { IconFlip, IconDraw, IconFlag, IconZap, IconCrown, IconCpu, IconUser, IconShield } from "../../components/Icons";
+import { showToast } from "../../utils/toast";
+import ConfirmModal from "../../components/ConfirmModal";
+
 const API = getApiUrl() + "/api";
 
 function authHeaders() {
@@ -17,7 +21,7 @@ function applyMove(chess, move) {
 }
 
 function resultLabel(reason, winner, playerColour) {
-  if (reason === "resigned") return { headline: "You Resigned", sub: "Better luck next time.", icon: "🏳️" };
+  if (reason === "resigned") return { headline: "You Resigned", sub: "Better luck next time.", type: "loss" };
   if (winner === "draw") {
     const sub = {
       stalemate: "No legal moves — it's a draw.",
@@ -25,13 +29,13 @@ function resultLabel(reason, winner, playerColour) {
       insufficient: "Insufficient material — it's a draw.",
       "fifty-move": "Fifty-move rule — it's a draw.",
     }[reason] ?? "It's a draw.";
-    return { headline: "Draw", sub, icon: "🤝" };
+    return { headline: "Draw Game", sub, type: "draw" };
   }
   if (reason === "checkmate") {
-    if (winner === "player") return { headline: "You Win!", sub: "You beat the engine! 🎉", icon: "🏆" };
-    return { headline: "You Lose", sub: "The engine wins. Try again?", icon: "💀" };
+    if (winner === "player") return { headline: "Victory!", sub: "You checkmated the engine!", type: "win" };
+    return { headline: "Defeat", sub: "The engine checkmated your King.", type: "loss" };
   }
-  return { headline: "Game Over", sub: reason, icon: "♟" };
+  return { headline: "Game Over", sub: reason, type: "draw" };
 }
 
 function useWindowWidth() {
@@ -165,12 +169,15 @@ export default function PvcGame() {
     return resultLabel("stalemate", "draw", playerColour);
   }
 
-  async function handleResign() {
-    if (!window.confirm("Resign this game?")) return;
+  const [confirmResignOpen, setConfirmResignOpen] = useState(false);
+
+  async function handleResignConfirm() {
+    setConfirmResignOpen(false);
     try {
       await fetch(`${API}/pvc/resign`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ gameId }) });
     } catch (_) {}
     setGameOver(resultLabel("resigned", "engine", playerColour));
+    showToast("You resigned the game.", "info");
   }
 
   const chess = chessRef.current;
@@ -374,10 +381,14 @@ export default function PvcGame() {
             {error && <div style={d.errorBox}>{error}</div>}
 
             {!gameOver ? (
-              <button onClick={handleResign} style={d.resignBtn}>Resign</button>
+              <button onClick={() => setConfirmResignOpen(true)} style={d.resignBtn} className="flex items-center justify-center gap-2">
+                <IconFlag size={16} /> Resign Game
+              </button>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <button onClick={() => navigate("/pvc")} style={d.primaryBtn}>New Game</button>
+                <button onClick={() => navigate("/pvc")} style={d.primaryBtn} className="flex items-center justify-center gap-2">
+                  <IconZap size={16} /> New Game
+                </button>
                 <button onClick={() => navigate("/home")} style={d.secondaryBtn}>Home</button>
               </div>
             )}
@@ -399,19 +410,34 @@ export default function PvcGame() {
           {gameOver && (
             <div style={d.overlay}>
               <div style={d.popup}>
-                <div style={{ ...d.popupGlow, background: gameOver.headline === "You Win!" ? "radial-gradient(circle, rgba(129,182,76,0.2) 0%, transparent 70%)" : gameOver.headline === "Draw" ? "radial-gradient(circle, rgba(196,163,90,0.2) 0%, transparent 70%)" : "radial-gradient(circle, rgba(200,60,60,0.15) 0%, transparent 70%)" }} />
-                <div style={{ fontSize: "3.5rem" }}>{gameOver.icon}</div>
-                <h2 style={{ ...d.popupTitle, color: gameOver.headline === "You Win!" ? "#81b64c" : gameOver.headline === "Draw" ? "#c4a35a" : "#e05555" }}>
+                <div style={{ ...d.popupGlow, background: gameOver.type === "win" ? "radial-gradient(circle, rgba(129,182,76,0.2) 0%, transparent 70%)" : gameOver.type === "draw" ? "radial-gradient(circle, rgba(196,163,90,0.2) 0%, transparent 70%)" : "radial-gradient(circle, rgba(200,60,60,0.15) 0%, transparent 70%)" }} />
+                <div className="flex items-center justify-center mb-3">
+                  <IconCrown size={48} className={gameOver.type === "win" ? "text-[#81b64c]" : gameOver.type === "draw" ? "text-[#c4a35a]" : "text-[#e53935]"} />
+                </div>
+                <h2 style={{ ...d.popupTitle, color: gameOver.type === "win" ? "#81b64c" : gameOver.type === "draw" ? "#c4a35a" : "#e05555" }}>
                   {gameOver.headline}
                 </h2>
                 <p style={d.popupSub}>{gameOver.sub}</p>
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button onClick={() => navigate("/pvc")} style={d.primaryBtn}>Play Again</button>
+                  <button onClick={() => navigate("/pvc")} style={d.primaryBtn} className="flex items-center gap-2">
+                    <IconZap size={16} /> Play Again
+                  </button>
                   <button onClick={() => navigate("/home")} style={d.secondaryBtn}>Home</button>
                 </div>
               </div>
             </div>
           )}
+
+          <ConfirmModal
+            isOpen={confirmResignOpen}
+            title="Resign Game?"
+            message="Are you sure you want to resign this game? This will count as a defeat."
+            confirmText="Resign"
+            cancelText="Cancel"
+            isDanger={true}
+            onConfirm={handleResignConfirm}
+            onCancel={() => setConfirmResignOpen(false)}
+          />
         </main>
 
         {/* MOVES SIDEBAR (right) */}

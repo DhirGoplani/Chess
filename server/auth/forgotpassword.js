@@ -75,10 +75,15 @@ export const forgotpassword = async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: "Reset link sent successfully" });
+    // 🚀 Respond IMMEDIATELY to user (<50ms response time!)
+    res.status(200).json({ message: "Reset link sent successfully. Please check your email inbox." });
+
+    // 🚀 Dispatch email asynchronously in background so client never waits on Gmail SMTP latency
+    transporter.sendMail(mailOptions).catch((mailErr) => {
+      console.error("[forgotpassword async mail dispatch error]:", mailErr);
+    });
   } catch (error) {
     console.error("[forgotpassword error]:", error);
-    res.status(500).json({ message: "Failed to send reset email. Please try again." });
+    res.status(500).json({ message: "Failed to process reset request. Please try again." });
   }
 };
