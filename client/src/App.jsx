@@ -13,11 +13,13 @@ import Analysis from './pages/analysis'
 import Profile from './pages/profile'
 import Friends from './pages/friends'
 import ToastContainer from './components/ToastContainer'
+import ChallengeNotifier from './components/ChallengeNotifier'
 
 function App() {
   return (
     <BrowserRouter>
       <ToastContainer />
+      <ChallengeNotifier />
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />

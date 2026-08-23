@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
+    "bot": "node lichessBot.js",
     "build:engine": "node scripts/build-engine.js",
     "postinstall": "node scripts/build-engine.js"
   },
@@ -23,6 +24,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2",
     "nodemailer": "^9.0.3",
     "socket.io": "^4.8.3",
     "uuid": "^13.0.0"
