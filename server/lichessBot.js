@@ -25,7 +25,7 @@ let myBotUsername = "";
 let isLoopMode = false;
 let totalLoopTarget = 12;
 let completedLoopGames = 0;
-const loopOpponents = ["maia5"];
+const loopOpponents = ["maia9"];
 
 console.log("==================================================");
 console.log("🤖 LICHESS BOT RUNNER FOR CHESS ENGINE");

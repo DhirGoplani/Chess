@@ -1,11 +1,11 @@
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
+import { existsSync } from "fs";
 import { EventEmitter } from "events";
+import { getJsEngineBestMove } from "./jsEngine.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ENGINE_BINARY = process.platform === "win32" ? "chess_engine.exe" : "chess_engine";
-const ENGINE_PATH = path.join(__dirname, "../../engine", ENGINE_BINARY);
 
 export class EngineProcess extends EventEmitter {
   constructor(gameId, engineColour, difficulty = "hard") {
@@ -16,6 +16,8 @@ export class EngineProcess extends EventEmitter {
     this.process = null;
     this.buffer = "";
     this.ready = false;
+    this.isFallback = false;
+    this.moveHistory = [];
     this._pendingResolve = null;
     this._pendingReject = null;
     this._pendingTimeout = null;
@@ -24,52 +26,79 @@ export class EngineProcess extends EventEmitter {
     const binaryName = process.platform === "win32" ? `${binaryPrefix}.exe` : binaryPrefix;
     this.enginePath = path.join(__dirname, "../../engine", binaryName);
 
+    // Fallback path check (e.g. chess_engine)
+    if (!existsSync(this.enginePath)) {
+      const fallbackBinary = process.platform === "win32" ? "chess_engine.exe" : "chess_engine";
+      const altPath = path.join(__dirname, "../../engine", fallbackBinary);
+      if (existsSync(altPath)) {
+        this.enginePath = altPath;
+      }
+    }
+
     this._chain = Promise.resolve();
   }
 
-  // Spawn the C++ engine and send the init line
+  // Spawn the C++ engine or switch to JS Engine fallback
   start() {
-    return new Promise((resolve, reject) => {
-      this.process = spawn(this.enginePath, [], {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+    return new Promise((resolve) => {
+      if (!existsSync(this.enginePath)) {
+        console.warn(`[Engine ${this.gameId}] C++ binary not found at ${this.enginePath}. Activating JS Engine fallback!`);
+        this.isFallback = true;
+        this.ready = true;
 
-      this.process.on("error", (err) => {
-        const hint =
-          err.code === "ENOENT"
-            ? ` Binary not found at ${ENGINE_PATH} - run "npm install" in /server to build it (requires g++).`
-            : "";
-        console.error(`[Engine ${this.gameId}] Spawn error:`, err.message + hint);
-        reject(new Error(`Failed to start engine: ${err.message}${hint}`));
-      });
-
-      this.process.stderr.on("data", (data) => {
-        console.error(`[Engine ${this.gameId}] stderr:`, data.toString().trim());
-      });
-
-      this.process.stdout.on("data", (data) => {
-        this.buffer += data.toString();
-        this._processBuffer();
-      });
-
-      this.process.on("close", (code) => {
-        console.log(`[Engine ${this.gameId}] Process exited with code ${code}`);
-        this.emit("closed");
-        if (this._pendingReject) {
-          this._pendingReject(new Error("Engine process closed unexpectedly"));
-          this._clearPending();
+        if (this.engineColour === "white") {
+          const firstMoveRes = getJsEngineBestMove([], this.difficulty);
+          if (firstMoveRes) {
+            this.moveHistory.push(firstMoveRes);
+            setTimeout(() => {
+              const line = `bestmove ${firstMoveRes.from} ${firstMoveRes.to}${firstMoveRes.promotion ? " " + firstMoveRes.promotion : ""}`;
+              this.emit("message", line);
+            }, 100);
+          }
         }
-      });
+        return resolve();
+      }
 
-      // Send which colour the engine plays
-      // The wrapper reads this as its first line
-      this.process.stdin.write(`engine ${this.engineColour}\n`);
-      this.ready = true;
+      try {
+        this.process = spawn(this.enginePath, [], {
+          stdio: ["pipe", "pipe", "pipe"],
+        });
 
-      // If engine plays white, it will immediately output a bestmove
-      // If engine plays black, it waits. Either way, resolve after spawn.
-      // Give it a moment to potentially send the first move
-      setTimeout(() => resolve(), 100);
+        this.process.on("error", (err) => {
+          console.warn(`[Engine ${this.gameId}] C++ Spawn failed (${err.message}). Activating JS Engine fallback!`);
+          this.isFallback = true;
+          this.ready = true;
+          resolve();
+        });
+
+        this.process.stderr.on("data", (data) => {
+          console.error(`[Engine ${this.gameId}] stderr:`, data.toString().trim());
+        });
+
+        this.process.stdout.on("data", (data) => {
+          this.buffer += data.toString();
+          this._processBuffer();
+        });
+
+        this.process.on("close", (code) => {
+          console.log(`[Engine ${this.gameId}] Process exited with code ${code}`);
+          this.emit("closed");
+          if (this._pendingReject) {
+            this._pendingReject(new Error("Engine process closed unexpectedly"));
+            this._clearPending();
+          }
+        });
+
+        this.process.stdin.write(`engine ${this.engineColour}\n`);
+        this.ready = true;
+        setTimeout(() => resolve(), 100);
+
+      } catch (err) {
+        console.warn(`[Engine ${this.gameId}] Exception starting C++ binary. Activating JS Engine fallback!`);
+        this.isFallback = true;
+        this.ready = true;
+        resolve();
+      }
     });
   }
 
@@ -87,7 +116,6 @@ export class EngineProcess extends EventEmitter {
         this._pendingResolve(trimmed);
         this._clearPending();
       } else {
-        // Unsolicited output (e.g. engine plays white, first move)
         this.emit("message", trimmed);
       }
     }
@@ -100,14 +128,8 @@ export class EngineProcess extends EventEmitter {
     this._pendingTimeout = null;
   }
 
-  // fix: run `fn` only once every previously-queued request has settled
-  // (resolved or rejected), so calls to this engine are always strictly
-  // serialized — no two "move"/"sync"/"go" writes can ever be in flight
-  // on the same stdin pipe at once.
   _enqueue(fn) {
     const run = this._chain.then(fn, fn);
-    // Swallow so one failed request doesn't permanently wedge the queue
-    // for requests that come after it.
     this._chain = run.then(
       () => {},
       () => {}
@@ -116,21 +138,35 @@ export class EngineProcess extends EventEmitter {
   }
 
   sendMove(move) {
+    if (this.isFallback) {
+      return this._enqueue(() => {
+        this.moveHistory.push(move);
+        const reply = getJsEngineBestMove(this.moveHistory, this.difficulty);
+        if (reply) this.moveHistory.push(reply);
+        return Promise.resolve(reply || { type: "error", message: "No legal moves" });
+      });
+    }
     return this._enqueue(() => this._sendMoveNow(move));
   }
 
-  // fix: push the authoritative move history to the engine and have it
-  // rebuild its internal board from scratch by replaying it. Call this when
-  // the engine's proposed move fails validation against the real game
-  // state, to recover instead of failing the whole game.
   sync(moves) {
+    if (this.isFallback) {
+      return this._enqueue(() => {
+        this.moveHistory = [...moves];
+        return Promise.resolve({ type: "synced", count: moves.length });
+      });
+    }
     return this._enqueue(() => this._syncNow(moves));
   }
 
-  // fix: ask the engine to compute + apply a move for whatever position it
-  // currently holds, without first applying a "human" move. Use this right
-  // after sync() to get a fresh, trustworthy reply.
   requestBestMove() {
+    if (this.isFallback) {
+      return this._enqueue(() => {
+        const reply = getJsEngineBestMove(this.moveHistory, this.difficulty);
+        if (reply) this.moveHistory.push(reply);
+        return Promise.resolve(reply || { type: "error", message: "No legal moves" });
+      });
+    }
     return this._enqueue(() => this._requestBestMoveNow());
   }
 
@@ -147,7 +183,6 @@ export class EngineProcess extends EventEmitter {
       this._pendingResolve = (line) => resolve(this._parseLine(line));
       this._pendingReject = reject;
 
-      // 10-second timeout (depth 4 should be well within this)
       this._pendingTimeout = setTimeout(() => {
         this._clearPending();
         reject(new Error("Engine response timeout"));
@@ -157,7 +192,6 @@ export class EngineProcess extends EventEmitter {
     });
   }
 
-  // fix: serialize a full move history to the engine's "sync" command.
   _syncNow(moves) {
     return new Promise((resolve, reject) => {
       if (!this.process || !this.ready) {
@@ -182,7 +216,6 @@ export class EngineProcess extends EventEmitter {
     });
   }
 
-  // fix: send the "go" command (compute a reply for the current position).
   _requestBestMoveNow() {
     return new Promise((resolve, reject) => {
       if (!this.process || !this.ready) {
@@ -204,11 +237,9 @@ export class EngineProcess extends EventEmitter {
     });
   }
 
-  // Parse a line from the engine into a structured response
   _parseLine(line) {
     if (line.startsWith("bestmove")) {
       const parts = line.split(" ");
-      // "bestmove e7 e5" or "bestmove e7 e8 q"
       return {
         type: "bestmove",
         from: parts[1],
@@ -216,7 +247,6 @@ export class EngineProcess extends EventEmitter {
         promotion: parts[3] || null,
       };
     }
-    // fix: recognize the "synced <n>" response from the new sync command
     if (line.startsWith("synced")) {
       const parts = line.split(" ");
       return { type: "synced", count: parseInt(parts[1], 10) };
@@ -225,7 +255,7 @@ export class EngineProcess extends EventEmitter {
       const parts = line.split(" ");
       return {
         type: "gameover",
-        reason: parts[1], // "checkmate" or "stalemate"
+        reason: parts[1],
       };
     }
     if (line.startsWith("error")) {

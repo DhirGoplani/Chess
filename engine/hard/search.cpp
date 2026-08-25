@@ -236,6 +236,21 @@ static int quiescence(Board& board, int alpha, int beta, int colour) {
 
     for (auto& sm : moves) {
         if (g_timesUp) return standPat;
+
+        // Delta pruning: skip non-promising quiet sacrifices if standPat + captured value cannot reach alpha/beta
+        if (!inCheck && sm.m.isCapture()) {
+            int toIdx = sm.m.to();
+            int capturedPiece = -1;
+            BB toBB = 1ULL << toIdx;
+            int enemy = 1 - colour;
+            for (int p = 0; p < 6; p++) {
+                if (board.pieces[enemy][p] & toBB) { capturedPiece = p; break; }
+            }
+            int capVal = (capturedPiece >= 0 && capturedPiece < 6) ? MATERIAL_APPROX[capturedPiece] : 100;
+            if (colour == Board::WHITE && (standPat + capVal + 200 < alpha)) continue;
+            if (colour == Board::BLACK && (standPat - capVal - 200 > beta)) continue;
+        }
+
         string fromSq = idxToSq(sm.m.from());
         string toSq   = idxToSq(sm.m.to());
         int    promo  = sm.m.promo();
@@ -324,7 +339,8 @@ static int alphaBeta(Board& board, int depth, int alpha, int beta, int colour, i
     if (moves.empty()) {
         if (board.isInCheck(colour))
             return (colour == Board::WHITE) ? -100'000 + ply : 100'000 - ply;
-        return 0;
+        // Contempt Factor: assign -50 draw score to active side so winning engine avoids draws!
+        return (colour == Board::WHITE) ? -50 : 50;
     }
 
     int    origAlpha = alpha;
