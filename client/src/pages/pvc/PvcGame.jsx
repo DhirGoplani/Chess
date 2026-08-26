@@ -311,6 +311,17 @@ export default function PvcGame() {
           </div>
         )}
 
+        <ConfirmModal
+          isOpen={confirmResignOpen}
+          title="Resign Game?"
+          message="Are you sure you want to resign this game? This will count as a defeat."
+          confirmText="Resign"
+          cancelText="Cancel"
+          isDanger={true}
+          onConfirm={handleResignConfirm}
+          onCancel={() => setConfirmResignOpen(false)}
+        />
+
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap');
           @keyframes popIn { from { opacity:0; transform:scale(0.92) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
