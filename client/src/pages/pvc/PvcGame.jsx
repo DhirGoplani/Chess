@@ -171,6 +171,10 @@ export default function PvcGame() {
 
   const [confirmResignOpen, setConfirmResignOpen] = useState(false);
 
+  function handleResign() {
+    setConfirmResignOpen(true);
+  }
+
   async function handleResignConfirm() {
     setConfirmResignOpen(false);
     try {
