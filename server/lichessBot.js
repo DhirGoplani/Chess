@@ -236,8 +236,6 @@ async function playGame(gameId) {
         if (!line.trim()) continue;
         try {
           const update = JSON.parse(line.trim());
-
-          // Full Game State Event
           if (update.type === "gameFull") {
             const whiteName = update.white?.name || update.white?.id || "";
             myColor = whiteName.toLowerCase() === myBotUsername.toLowerCase() ? "white" : "black";
